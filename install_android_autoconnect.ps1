@@ -9,17 +9,17 @@ if (-not (Test-Path -LiteralPath $watcherPath)) {
 }
 
 $arguments = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ' +
-  '"' + $watcherPath + '"'
+  '"' + $watcherPath + '" -Once'
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arguments
 $logonTrigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
-# ADB/Flutter can occasionally terminate the hidden watcher while restarting its
-# server. The repeating trigger acts as a watchdog: IgnoreNew keeps the current
-# watcher when it is healthy and starts a replacement within one minute when it
-# has exited.
+# Chạy một lần kiểm tra ngắn mỗi phút thay vì giữ một PowerShell sống mãi.
+# Flutter/ADB có thể dừng tiến trình nền khi khởi động lại ADB server; lần chạy
+# kế tiếp sẽ tự tạo lại adb reverse mà không cần người dùng can thiệp.
 $watchdogTrigger = New-ScheduledTaskTrigger `
   -Once `
-  -At (Get-Date).AddMinutes(1) `
-  -RepetitionInterval (New-TimeSpan -Minutes 1)
+  -At (Get-Date).AddSeconds(10) `
+  -RepetitionInterval (New-TimeSpan -Minutes 1) `
+  -RepetitionDuration (New-TimeSpan -Days 3650)
 $settings = New-ScheduledTaskSettingsSet `
   -AllowStartIfOnBatteries `
   -DontStopIfGoingOnBatteries `
@@ -38,10 +38,16 @@ Register-ScheduledTask `
   -Force | Out-Null
 
 Start-ScheduledTask -TaskName $taskName
-Start-Sleep -Seconds 3
+Start-Sleep -Seconds 5
 
 $task = Get-ScheduledTask -TaskName $taskName
 $taskInfo = Get-ScheduledTaskInfo -TaskName $taskName
+$triggerCount = @($task.Triggers).Count
 Write-Host "Installed: $taskName"
 Write-Host "State: $($task.State)"
 Write-Host "Last result: $($taskInfo.LastTaskResult)"
+Write-Host "Triggers: $triggerCount (logon + every minute)"
+
+if ($triggerCount -lt 2) {
+  throw 'Scheduled Task was installed without the repeating watchdog trigger.'
+}

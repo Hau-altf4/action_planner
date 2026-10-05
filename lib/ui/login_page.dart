@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../data/task_repository.dart';
@@ -24,6 +26,7 @@ class _LoginPageState extends State<LoginPage> {
   bool _backendAvailable = false;
   String _backendStatus = 'Đang kiểm tra kết nối máy chủ...';
   String? _error;
+  Timer? _backendRetryTimer;
 
   @override
   void initState() {
@@ -46,6 +49,8 @@ class _LoginPageState extends State<LoginPage> {
         _backendAvailable = true;
         _backendStatus = 'Máy chủ đã sẵn sàng qua $selectedUrl';
       });
+      _backendRetryTimer?.cancel();
+      _backendRetryTimer = null;
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -53,11 +58,17 @@ class _LoginPageState extends State<LoginPage> {
         _backendAvailable = false;
         _backendStatus = '$error';
       });
+      _backendRetryTimer?.cancel();
+      _backendRetryTimer = Timer(const Duration(seconds: 5), () {
+        _backendRetryTimer = null;
+        if (mounted) _checkBackend();
+      });
     }
   }
 
   @override
   void dispose() {
+    _backendRetryTimer?.cancel();
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -260,12 +271,12 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Text(
+                    const Text(
                       TaskRepository.usesMockData
                           ? 'Chế độ hiện tại dùng dữ liệu mẫu — không gửi thông tin ra ngoài.'
-                          : 'Dữ liệu được lưu vào MongoDB thông qua ${TaskRepository.apiBaseUrl}.',
+                          : '',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.black54),
+                      style: TextStyle(color: Colors.black54),
                     ),
                   ],
                 ),

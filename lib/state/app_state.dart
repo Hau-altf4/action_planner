@@ -20,7 +20,7 @@ class AppState extends ChangeNotifier {
   final List<ChatMessage> messages = const [
     ChatMessage(
       'Xin chào! Mình có thể giúp bạn chia nhỏ công việc, đánh giá ưu tiên '
-      'hoặc sắp xếp lại lịch hôm nay.',
+      'hoặc xem lịch hôm nay. Bạn có thể chọn một câu hỏi gợi ý bên dưới.',
       fromUser: false,
     ),
   ].toList();
@@ -99,7 +99,7 @@ class AppState extends ChangeNotifier {
       ..add(
         const ChatMessage(
           'Xin chào! Mình có thể giúp bạn chia nhỏ công việc, đánh giá ưu tiên '
-          'hoặc sắp xếp lại lịch hôm nay.',
+          'hoặc xem lịch hôm nay. Bạn có thể chọn một câu hỏi gợi ý bên dưới.',
           fromUser: false,
         ),
       );
@@ -118,7 +118,7 @@ class AppState extends ChangeNotifier {
       ..add(
         const ChatMessage(
           'Xin chào! Mình có thể giúp bạn chia nhỏ công việc, đánh giá ưu tiên '
-          'hoặc sắp xếp lại lịch hôm nay.',
+          'hoặc xem lịch hôm nay. Bạn có thể chọn một câu hỏi gợi ý bên dưới.',
           fromUser: false,
         ),
       );

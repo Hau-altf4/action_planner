@@ -162,7 +162,20 @@ cho tất cả user không có cấu hình riêng.
 
 ## 5. Kết nối Flutter với backend
 
-Android Emulator truy cập máy phát triển qua địa chỉ `10.0.2.2`:
+### Android qua USB (khuyến nghị khi phát triển trên Windows)
+
+Cài tác vụ tự động một lần:
+
+```powershell
+.\install_android_autoconnect.ps1
+```
+
+Tác vụ kiểm tra thiết bị mỗi phút, tự khởi động backend/Ollama và tự tạo lại
+`adb reverse tcp:3000 tcp:3000` sau mỗi lần cắm cáp hoặc ADB khởi động lại. App
+dùng `http://127.0.0.1:3000` và tự thử kết nối lại, nên không phụ thuộc IP Wi-Fi.
+Điện thoại cần bật USB debugging và đã chọn **Allow** cho máy tính này.
+
+Android Emulator cũng có thể truy cập máy phát triển qua địa chỉ `10.0.2.2`:
 
 ```powershell
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000

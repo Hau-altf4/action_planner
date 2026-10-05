@@ -78,6 +78,15 @@ void main() {
 
     await tester.tap(find.text('AI'));
     await tester.pump();
+    expect(find.text('Xem lịch hôm nay'), findsOneWidget);
+    expect(find.text('Việc nào cần ưu tiên?'), findsOneWidget);
+    expect(find.text('Task nào sắp hết hạn?'), findsOneWidget);
+    await tester.drag(
+      find.byType(ListView).last,
+      const Offset(-500, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Hướng dẫn tôi chia nhỏ một công việc'), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'Sắp xếp công việc');
     await tester.testTextInput.receiveAction(TextInputAction.send);
     await tester.pump();

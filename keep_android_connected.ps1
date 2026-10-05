@@ -1,6 +1,7 @@
 param(
   [int]$Port = 3000,
-  [int]$PollSeconds = 2
+  [int]$PollSeconds = 2,
+  [switch]$Once
 )
 
 $ErrorActionPreference = 'Continue'
@@ -80,9 +81,7 @@ if (-not (Test-Path -LiteralPath $adbPath)) {
   exit 1
 }
 
-Write-BridgeLog "Android bridge watcher started for tcp:$Port."
-
-while ($true) {
+function Invoke-BridgeCheck {
   try {
     $deviceLines = & $adbPath devices 2>$null |
       Select-Object -Skip 1 |
@@ -102,16 +101,18 @@ while ($true) {
         }
       }
 
-      if (-not $knownConnectedDevices.ContainsKey($serial)) {
+      if (-not $Once -and -not $knownConnectedDevices.ContainsKey($serial)) {
         Write-BridgeLog "Device connected: $serial."
         $knownConnectedDevices[$serial] = $true
       }
     }
 
-    foreach ($serial in @($knownConnectedDevices.Keys)) {
-      if ($connectedSerials -notcontains $serial) {
-        Write-BridgeLog "Device disconnected: $serial."
-        $knownConnectedDevices.Remove($serial)
+    if (-not $Once) {
+      foreach ($serial in @($knownConnectedDevices.Keys)) {
+        if ($connectedSerials -notcontains $serial) {
+          Write-BridgeLog "Device disconnected: $serial."
+          $knownConnectedDevices.Remove($serial)
+        }
       }
     }
 
@@ -122,6 +123,17 @@ while ($true) {
   } catch {
     Write-BridgeLog "Watcher error: $($_.Exception.Message)"
   }
+}
+
+if ($Once) {
+  Invoke-BridgeCheck
+  exit 0
+}
+
+Write-BridgeLog "Android bridge watcher started for tcp:$Port."
+
+while ($true) {
+  Invoke-BridgeCheck
 
   Start-Sleep -Seconds ([Math]::Max(1, $PollSeconds))
 }

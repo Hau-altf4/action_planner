@@ -652,30 +652,158 @@ app.post(
   auth,
   asyncRoute(async (req, res) => {
     const question = String(req.body.message || '').trim();
+    if (!question) {
+      return res.status(400).json({ message: 'Vui lòng nhập câu hỏi.' });
+    }
     if (/^(alo|a lô|hello|hi|hey|xin chào|chào)[\s!.?]*$/i.test(question)) {
       return res.json({
-        answer: 'Alo 😄 Mình đây! Hôm nay bạn muốn trò chuyện hay cần mình giúp điều gì?',
+        answer:
+          'Chào bạn 😄 Mình có thể xem lịch hôm nay, tìm việc cần ưu tiên, kiểm tra task sắp hết hạn hoặc giúp chia nhỏ một công việc.',
       });
     }
     const needsTaskContext =
-      /(task|công việc|deadline|hạn chót|lịch|kế hoạch|ưu tiên|tiến độ|việc cần làm)/i.test(
+      /(task|công việc|deadline|hạn chót|hết hạn|lịch|kế hoạch|ưu tiên|tiến độ|việc cần làm|chia nhỏ)/i.test(
         question,
       );
     const currentTasks = needsTaskContext
       ? await tasks
           .find({ userId: req.user.id })
           .sort({ deadline: 1 })
-          .limit(12)
+          .limit(50)
           .project({
             title: 1,
+            description: 1,
             category: 1,
             priority: 1,
             status: 1,
             estimatedMinutes: 1,
             deadline: 1,
+            scheduledStart: 1,
+            steps: 1,
           })
           .toArray()
       : [];
+    const formatTime = (value) =>
+      new Intl.DateTimeFormat('vi-VN', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(new Date(value));
+    const formatDateTime = (value) =>
+      new Intl.DateTimeFormat('vi-VN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        day: '2-digit',
+        month: '2-digit',
+      }).format(new Date(value));
+    const activeTasks = currentTasks.filter((task) => task.status !== 'completed');
+    const asksTodaySchedule =
+      /(?:lịch|lịch trình).*(?:hôm nay)|(?:hôm nay).*(?:lịch|việc)/i.test(question);
+    if (asksTodaySchedule) {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const end = new Date(start);
+      end.setDate(end.getDate() + 1);
+      const todayTasks = activeTasks
+        .filter((task) => {
+          if (!task.scheduledStart) return false;
+          const scheduled = new Date(task.scheduledStart);
+          return scheduled >= start && scheduled < end;
+        })
+        .sort((left, right) => new Date(left.scheduledStart) - new Date(right.scheduledStart));
+      if (!todayTasks.length) {
+        return res.json({
+          answer: 'Hôm nay bạn chưa có công việc nào được xếp lịch.',
+        });
+      }
+      return res.json({
+        answer: [
+          'Lịch hôm nay của bạn:',
+          ...todayTasks.map(
+            (task, index) =>
+              `${index + 1}. ${formatTime(task.scheduledStart)} — ${task.title} (${task.estimatedMinutes} phút)`,
+          ),
+        ].join('\n'),
+      });
+    }
+    const asksPriority = /(?:việc|task|công việc).*(?:ưu tiên|quan trọng)|(?:ưu tiên).*(?:việc|task|công việc)/i.test(
+      question,
+    );
+    if (asksPriority) {
+      const priorityRank = { urgent: 0, high: 1, medium: 2, low: 3 };
+      const labels = { urgent: 'Khẩn cấp', high: 'Cao', medium: 'Trung bình', low: 'Thấp' };
+      const prioritized = [...activeTasks]
+        .sort(
+          (left, right) =>
+            (priorityRank[left.priority] ?? 9) - (priorityRank[right.priority] ?? 9) ||
+            new Date(left.deadline) - new Date(right.deadline),
+        )
+        .slice(0, 5);
+      if (!prioritized.length) {
+        return res.json({ answer: 'Bạn chưa có công việc nào cần ưu tiên.' });
+      }
+      return res.json({
+        answer: [
+          'Các công việc nên ưu tiên:',
+          ...prioritized.map(
+            (task, index) =>
+              `${index + 1}. ${task.title} — ${labels[task.priority] || task.priority}, hạn ${formatDateTime(task.deadline)}`,
+          ),
+        ].join('\n'),
+      });
+    }
+    const asksDeadline = /(?:sắp|gần|quá).*(?:hết hạn|deadline|hạn chót)|(?:hết hạn|deadline|hạn chót).*(?:sắp|gần|quá)/i.test(
+      question,
+    );
+    if (asksDeadline) {
+      const upcoming = [...activeTasks]
+        .sort((left, right) => new Date(left.deadline) - new Date(right.deadline))
+        .slice(0, 5);
+      if (!upcoming.length) {
+        return res.json({ answer: 'Bạn chưa có task nào đang chờ xử lý.' });
+      }
+      const now = new Date();
+      return res.json({
+        answer: [
+          'Các task gần hạn nhất:',
+          ...upcoming.map((task, index) => {
+            const overdue = new Date(task.deadline) < now ? ' — đã quá hạn' : '';
+            return `${index + 1}. ${task.title} — ${formatDateTime(task.deadline)}${overdue}`;
+          }),
+        ].join('\n'),
+      });
+    }
+    const asksBreakdown = /(?:chia nhỏ|các bước|bắt đầu).*(?:task|công việc)|(?:task|công việc).*(?:chia nhỏ|các bước|bắt đầu)/i.test(
+      question,
+    );
+    if (asksBreakdown) {
+      const normalizedQuestion = question.toLocaleLowerCase('vi-VN');
+      const selectedTask = activeTasks.find((task) =>
+        normalizedQuestion.includes(String(task.title).toLocaleLowerCase('vi-VN')),
+      );
+      if (!selectedTask) {
+        return res.json({
+          answer:
+            'Bạn muốn chia nhỏ công việc nào? Hãy nhập tên task, ví dụ: “Chia nhỏ task Viết báo cáo”.',
+        });
+      }
+      const savedSteps = (Array.isArray(selectedTask.steps) ? selectedTask.steps : [])
+        .map((step) => String(step.title || '').trim())
+        .filter(Boolean);
+      const breakdown = savedSteps.length
+        ? savedSteps
+        : [
+            `Xác định kết quả cần đạt của “${selectedTask.title}”.`,
+            'Chuẩn bị tài liệu và công cụ cần thiết.',
+            'Thực hiện phần chính trong một phiên tập trung.',
+            'Kiểm tra kết quả và hoàn thiện phần còn thiếu.',
+          ];
+      return res.json({
+        answer: [
+          `Các bước cho “${selectedTask.title}”:`,
+          ...breakdown.slice(0, 6).map((step, index) => `${index + 1}. ${step}`),
+        ].join('\n'),
+      });
+    }
     const history = (Array.isArray(req.body.history) ? req.body.history : [])
       .slice(-10)
       .map((item) => ({
@@ -689,14 +817,19 @@ app.post(
           `${item.role === 'assistant' ? 'Trợ lý' : 'Người dùng'}: ${item.content}`,
       )
       .join('\n');
-    const taskContext = currentTasks.map((task) => ({
+    const taskContext = currentTasks.slice(0, 12).map((task) => ({
           id: task._id.toString(),
           title: task.title,
+          description: String(task.description || '').slice(0, 300),
           category: task.category,
           priority: task.priority,
           status: task.status,
           estimatedMinutes: task.estimatedMinutes,
           deadline: task.deadline,
+          scheduledStart: task.scheduledStart || null,
+          steps: Array.isArray(task.steps)
+            ? task.steps.slice(0, 8).map((step) => step.title)
+            : [],
         }));
     const input = [
       conversation ? `Lịch sử hội thoại:\n${conversation}` : '',
@@ -709,7 +842,18 @@ app.post(
       .join('\n\n');
     const answer = await aiResponse(
       input,
-      'Bạn là một người bạn AI thân thiện và tự nhiên, trò chuyện bằng tiếng Việt. Trả lời đúng tin nhắn mới, có xét lịch sử. Không lặp lại câu trước. Không tự nói về ưu tiên, deadline hay task trừ khi người dùng hỏi. Trả lời ngắn gọn, ấm áp và hữu ích.',
+      [
+        'Bạn là trợ lý quản lý công việc Action Planner AI.',
+        'LUÔN trả lời hoàn toàn bằng tiếng Việt, trừ khi người dùng yêu cầu ngôn ngữ khác.',
+        'Trả lời trực tiếp câu hỏi mới dựa trên lịch sử và dữ liệu công việc được cung cấp.',
+        'Không được trả lời chung chung kiểu “để tôi kiểm tra” hoặc hứa sẽ làm sau; phải đưa kết quả ngay trong câu trả lời hiện tại.',
+        'Không bịa công việc. Nếu thiếu tên công việc hoặc thông tin cần thiết, hãy hỏi đúng một câu làm rõ.',
+        'Khi người dùng yêu cầu chia nhỏ task, đưa ra 3 đến 6 bước hành động ngắn, cụ thể.',
+        'Khi người dùng hỏi về lịch, ưu tiên hoặc deadline, dùng đúng dữ liệu công việc và trình bày dạng danh sách dễ đọc.',
+        'Ví dụ: “Chia nhỏ task Viết báo cáo” → trả lời các bước cụ thể bằng tiếng Việt.',
+        'Ví dụ: “Tôi nên làm gì trước?” → chọn công việc phù hợp từ dữ liệu và giải thích ngắn gọn.',
+        'Giữ câu trả lời súc tích, thân thiện và không lặp lại câu trước.',
+      ].join(' '),
       null,
       req.user.id,
     );

@@ -708,13 +708,32 @@ class _AiViewState extends State<AiView> {
   }
 
   void _send() {
-    final text = controller.text;
+    final text = controller.text.trim();
+    if (text.isEmpty || widget.appState.isAiBusy) return;
     controller.clear();
+    widget.appState.askAi(text);
+  }
+
+  void _sendSuggestion(String text) {
+    if (widget.appState.isAiBusy) return;
+    FocusScope.of(context).unfocus();
     widget.appState.askAi(text);
   }
 
   @override
   Widget build(BuildContext context) {
+    final activeTasks = widget.appState.tasks
+        .where((task) => task.status != TaskStatus.completed)
+        .toList();
+    final suggestions = <String>[
+      'Xem lịch hôm nay',
+      'Việc nào cần ưu tiên?',
+      'Task nào sắp hết hạn?',
+      if (activeTasks.isNotEmpty)
+        'Chia nhỏ task "${activeTasks.first.title}"'
+      else
+        'Hướng dẫn tôi chia nhỏ một công việc',
+    ];
     return Column(
       children: [
         Expanded(
@@ -752,6 +771,22 @@ class _AiViewState extends State<AiView> {
                 ),
               );
             },
+          ),
+        ),
+        SizedBox(
+          height: 46,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            scrollDirection: Axis.horizontal,
+            itemCount: suggestions.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            itemBuilder: (_, index) => ActionChip(
+              avatar: const Icon(Icons.auto_awesome, size: 16),
+              label: Text(suggestions[index]),
+              onPressed: widget.appState.isAiBusy
+                  ? null
+                  : () => _sendSuggestion(suggestions[index]),
+            ),
           ),
         ),
         SafeArea(
