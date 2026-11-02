@@ -130,7 +130,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                     items: const [
                       DropdownMenuItem(
                         value: 'ollama',
-                        child: Text('Ollama (local)'),
+                        child: Text('Ollama (trên máy)'),
                       ),
                       DropdownMenuItem(value: 'openai', child: Text('OpenAI')),
                       DropdownMenuItem(
@@ -157,11 +157,11 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                   TextFormField(
                     controller: _model,
                     decoration: const InputDecoration(
-                      labelText: 'Tên model',
+                      labelText: 'Tên mô hình',
                       prefixIcon: Icon(Icons.memory),
                     ),
                     validator: (value) => value == null || value.trim().isEmpty
-                        ? 'Vui lòng nhập model'
+                        ? 'Vui lòng nhập tên mô hình'
                         : null,
                   ),
                   if (widget.admin) ...[
@@ -170,7 +170,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                       controller: _baseUrl,
                       keyboardType: TextInputType.url,
                       decoration: InputDecoration(
-                        labelText: 'Base URL (không bắt buộc)',
+                        labelText: 'Địa chỉ máy chủ (không bắt buộc)',
                         hintText: _provider == 'ollama'
                             ? 'http://127.0.0.1:11434'
                             : 'Để trống để dùng địa chỉ mặc định',
@@ -201,8 +201,8 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                       autocorrect: false,
                       decoration: InputDecoration(
                         labelText: _hasApiKey
-                            ? 'API key (đã lưu — nhập để thay đổi)'
-                            : 'API key',
+                            ? 'Khóa API (đã lưu — nhập để thay đổi)'
+                            : 'Khóa API',
                         prefixIcon: const Icon(Icons.key),
                         suffixIcon: IconButton(
                           onPressed: () => setState(() => _hideKey = !_hideKey),
@@ -217,12 +217,12 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                           !_hasApiKey &&
                               (widget.admin || _enabled) &&
                               (value == null || value.trim().isEmpty)
-                          ? 'Vui lòng nhập API key'
+                          ? 'Vui lòng nhập khóa API'
                           : null,
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Khóa được mã hóa AES-256-GCM trên backend và không bao giờ được gửi trả về ứng dụng.',
+                      'Khóa được mã hóa AES-256-GCM trên máy chủ và không bao giờ được gửi trả về ứng dụng.',
                       style: TextStyle(color: Colors.black54),
                     ),
                   ],

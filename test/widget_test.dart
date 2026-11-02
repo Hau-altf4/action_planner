@@ -80,7 +80,7 @@ void main() {
     await tester.pump();
     expect(find.text('Xem lịch hôm nay'), findsOneWidget);
     expect(find.text('Việc nào cần ưu tiên?'), findsOneWidget);
-    expect(find.text('Task nào sắp hết hạn?'), findsOneWidget);
+    expect(find.text('Công việc nào sắp hết hạn?'), findsOneWidget);
     await tester.drag(
       find.byType(ListView).last,
       const Offset(-500, 0),

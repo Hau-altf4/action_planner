@@ -19,6 +19,7 @@ thật để mỗi tài khoản dùng dữ liệu riêng được lưu trong Mon
 - Thông báo native trước deadline 10 phút và khi quá hạn.
 - Dashboard admin: user, mức sử dụng, độ trễ AI, đánh giá và khiếu nại.
 - Khôi phục phiên đăng nhập an toàn và cache công việc để mở app nhanh hơn.
+- Đọc tiêu đề, mô tả và các bước công việc bằng giọng nói tiếng Việt.
 
 ## 1. Chạy ứng dụng
 
@@ -160,7 +161,48 @@ MongoDB và không bao giờ được trả lại cho app. Production bắt bu�
 Admin vào **Cá nhân → Dashboard quản trị → Cấu hình AI mặc định** để chọn AI
 cho tất cả user không có cấu hình riêng.
 
-## 5. Kết nối Flutter với backend
+## 5. Cấu hình giọng nói tiếng Việt
+
+Tính năng đọc công việc dùng thư viện mã nguồn mở
+[`vietTTS`](https://github.com/NTT123/vietTTS). Dự án này chạy bằng Python và
+mô hình học máy, vì vậy cần cài riêng bên cạnh backend:
+
+```powershell
+git clone https://github.com/NTT123/vietTTS.git
+cd vietTTS
+python -m pip install -e .
+```
+
+Tải các mô hình theo hướng dẫn `scripts/quick_start.sh` của `vietTTS`, rồi đặt
+các biến sau trong `backend/.env`:
+
+```env
+VIETTTS_DIR=C:\duong-dan\vietTTS
+VIETTTS_PYTHON=python
+VIETTTS_LEXICON=assets/infore/lexicon.txt
+VIETTTS_TIMEOUT_MS=120000
+```
+
+Khởi động lại backend. Kết quả `/health` phải có `"voice": "configured"`.
+Trong ứng dụng, bấm biểu tượng loa ở thẻ công việc hoặc nút **Đọc công việc**
+trong màn hình chi tiết. Âm thanh được tạo theo yêu cầu, chỉ trả về cho tài
+khoản đã đăng nhập và không được lưu trên máy chủ.
+
+Nếu máy phát triển chưa cài Python hoặc mô hình `vietTTS`, ứng dụng tự chuyển
+sang giọng tiếng Việt có sẵn trên Android/iOS thay vì báo lỗi. Khi `/health`
+trả về `"voice": "configured"`, ứng dụng sẽ ưu tiên âm thanh do `vietTTS` tạo.
+
+Sau khi cập nhật backend, khởi động lại tiến trình cũ bằng:
+
+```powershell
+.\start_backend.ps1 -Restart
+```
+
+Lưu ý: tác giả `vietTTS` cho biết dự án cũ không còn được cập nhật và giới
+thiệu dự án `LightSpeed`. Lớp giọng nói của ứng dụng được tách riêng trong
+`backend/src/voice.js` để có thể thay bộ máy sau này.
+
+## 6. Kết nối Flutter với backend
 
 ### Android qua USB (khuyến nghị khi phát triển trên Windows)
 
@@ -191,7 +233,7 @@ flutter run --dart-define=API_BASE_URL=http://192.168.1.10:3000
 `usesCleartextTraffic` đang bật để phát triển qua HTTP nội bộ. Trước khi phát
 hành, triển khai backend bằng HTTPS rồi đặt thuộc tính này thành `false`.
 
-## 6. Thông báo deadline
+## 7. Thông báo thời hạn
 
 Vào **Cá nhân → Bật thông báo deadline** và cấp quyền. App tạo hai thông báo
 native cho mỗi task chưa hoàn thành:
@@ -204,7 +246,7 @@ cao. Có thể đổi riêng âm thanh của channel này tại **Cài đặt �
 Action Planner AI → Thông báo → Nhắc deadline → Âm thanh**. iOS dùng âm báo hệ
 thống với mức Time Sensitive. Khi hoàn thành task, hai lịch thông báo được hủy.
 
-## 7. Chạy trên iPhone thật
+## 8. Chạy trên iPhone thật
 
 Có thể chạy trên iPhone thật, không bắt buộc Android. Tuy nhiên Apple yêu cầu
 build và ký ứng dụng bằng **macOS + Xcode**; Windows không thể cài bản Flutter
@@ -283,7 +325,7 @@ không nên mở các cổng này ra Internet. Trên bản web HTTP, app có th�
 notification trình duyệt hoặc hộp thoại khi trang vẫn đang mở. Nếu Safari đã bị
 đóng/đưa ra khỏi bộ nhớ, thông báo nền cần HTTPS + Web Push hoặc bản native.
 
-## 8. Kiểm tra và build APK
+## 9. Kiểm tra và tạo APK
 
 ```powershell
 dart format lib test
@@ -303,9 +345,20 @@ lib/
   state/app_state.dart        # Trạng thái và business logic
   ui/                         # Đăng nhập, dashboard, task, lịch, AI, hồ sơ
 backend/
-  src/server.js               # Express API, JWT, MongoDB, OpenAI
+  src/server.js               # Express API, JWT, MongoDB và trợ lý AI
+  src/voice.js                # Tổng hợp giọng nói bằng vietTTS
   .env.example                # Mẫu cấu hình không chứa bí mật
+report/overleaf/
+  main.tex                    # Mã nguồn báo cáo dùng trên Overleaf
+  README.md                   # Hướng dẫn biên dịch và bổ sung hình ảnh
 ```
+
+## Báo cáo đồ án
+
+Mã nguồn báo cáo đã được đối chiếu với phiên bản hiện tại của ứng dụng và đặt
+tại `report/overleaf`. Tạo dự án trống trên Overleaf, tải thư mục này lên, chọn
+trình biên dịch **XeLaTeX** rồi mở `main.tex`. Trước khi nộp, cần bổ sung MSSV
+của Nguyễn Cao Hậu và các ảnh chụp màn hình theo hướng dẫn trong thư mục báo cáo.
 
 ## Trước khi đưa lên production
 

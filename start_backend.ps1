@@ -1,3 +1,7 @@
+param(
+  [switch]$Restart
+)
+
 $ErrorActionPreference = 'Stop'
 
 $projectPath = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -11,11 +15,25 @@ $stderrLog = Join-Path $logPath "backend-$timestamp.err.log"
 try {
   $health = Invoke-RestMethod -Uri $healthUrl -TimeoutSec 2
   if ($health.status -eq 'ok') {
-    Write-Host 'Action Planner backend is already running.'
-    exit 0
+    if (-not $Restart) {
+      Write-Host 'Máy chủ Action Planner đang chạy.'
+      exit 0
+    }
+    $connection = Get-NetTCPConnection -LocalPort 3000 -State Listen |
+      Select-Object -First 1
+    $backendProcess = Get-Process -Id $connection.OwningProcess
+    if ($backendProcess.ProcessName -ne 'node') {
+      throw "Cổng 3000 đang được dùng bởi $($backendProcess.ProcessName); không tự dừng tiến trình này."
+    }
+    Stop-Process -Id $backendProcess.Id
+    $null = $backendProcess.WaitForExit(5000)
+    Write-Host "Đã dừng máy chủ cũ (PID $($backendProcess.Id))."
   }
 } catch {
-  # The backend is not listening yet, so start it below.
+  if ($_.Exception.Message -like 'Cổng 3000 đang được dùng*') {
+    throw
+  }
+  # Máy chủ chưa hoạt động nên sẽ được khởi động bên dưới.
 }
 
 $nodePath = (Get-Command node -ErrorAction Stop).Source
@@ -35,20 +53,20 @@ for ($attempt = 0; $attempt -lt 120; $attempt++) {
     $details = if (Test-Path $stderrLog) {
       (Get-Content -LiteralPath $stderrLog -Tail 30) -join [Environment]::NewLine
     } else {
-      'Node did not write an error log.'
+      'Node không ghi nhật ký lỗi.'
     }
-    throw "Backend stopped during startup (exit code $($process.ExitCode)).`n$details"
+    throw "Máy chủ dừng khi khởi động (mã $($process.ExitCode)).`n$details"
   }
   try {
     $health = Invoke-RestMethod -Uri $healthUrl -TimeoutSec 2
     if ($health.status -eq 'ok') {
-      Write-Host "Action Planner backend started (PID $($process.Id))."
-      Write-Host "MongoDB: $($health.database); AI: $($health.aiModel)"
+      Write-Host "Máy chủ Action Planner đã khởi động (PID $($process.Id))."
+      Write-Host "MongoDB: $($health.database); AI: $($health.aiModel); giọng nói: $($health.voice)"
       exit 0
     }
   } catch {
-    # Give Node and MongoDB a little more time to initialize.
+    # Chờ Node và MongoDB khởi động hoàn tất.
   }
 }
 
-throw "Backend did not become ready after 60 seconds. Check logs:`n$stdoutLog`n$stderrLog"
+throw "Máy chủ chưa sẵn sàng sau 60 giây. Kiểm tra nhật ký:`n$stdoutLog`n$stderrLog"

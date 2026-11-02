@@ -54,6 +54,7 @@ abstract class TaskRepository {
   Future<AiSettings> getAiSettings({bool admin = false});
   Future<AiSettings> saveAiSettings(AiSettings settings, {bool admin = false});
   Future<void> testAiSettings();
+  Future<Uint8List> synthesizeSpeech(String text);
   Future<void> submitFeedback({
     required String type,
     required String message,
@@ -218,7 +219,7 @@ class MockTaskRepository implements TaskRepository {
       });
     return ReplanProposal(
       summary: feedback.isEmpty
-          ? 'Đề xuất ưu tiên công việc quan trọng và có deadline gần.'
+          ? 'Đề xuất ưu tiên công việc quan trọng và có thời hạn gần.'
           : 'Đã điều chỉnh phương án theo phản hồi: $feedback',
       tasks: ordered,
     );
@@ -258,6 +259,11 @@ class MockTaskRepository implements TaskRepository {
 
   @override
   Future<void> testAiSettings() async {}
+
+  @override
+  Future<Uint8List> synthesizeSpeech(String text) {
+    throw const ApiException('Chế độ dữ liệu mẫu không hỗ trợ tạo giọng nói.');
+  }
 
   @override
   Future<void> submitFeedback({
@@ -334,16 +340,18 @@ class ApiTaskRepository implements TaskRepository {
             .timeout(const Duration(seconds: 3));
         if (response.statusCode >= 200 && response.statusCode < 300) {
           _reachableBaseUrl = candidate;
-          debugPrint('Action Planner backend selected: $candidate');
+          debugPrint('Action Planner đã chọn máy chủ: $candidate');
           return candidate;
         }
       } catch (error) {
-        debugPrint('Action Planner backend unavailable at $candidate: $error');
+        debugPrint(
+          'Máy chủ Action Planner không sẵn sàng tại $candidate: $error',
+        );
       }
     }
 
     throw ApiException(
-      'Không thể kết nối backend. Đã thử: ${_baseUrlCandidates.join(', ')}.',
+      'Không thể kết nối máy chủ. Đã thử: ${_baseUrlCandidates.join(', ')}.',
     );
   }
 
@@ -423,13 +431,50 @@ class ApiTaskRepository implements TaskRepository {
       return text.isEmpty ? null : jsonDecode(text);
     } on http.ClientException catch (error) {
       _reachableBaseUrl = null;
-      throw ApiException('Mất kết nối tới backend: $error');
+      throw ApiException('Mất kết nối tới máy chủ: $error');
     } on TimeoutException {
       final failedBaseUrl = _reachableBaseUrl;
       _reachableBaseUrl = null;
       throw ApiException(
-        'Backend phản hồi quá chậm${failedBaseUrl == null ? '' : ' tại $failedBaseUrl'}.',
+        'Máy chủ phản hồi quá chậm${failedBaseUrl == null ? '' : ' tại $failedBaseUrl'}.',
       );
+    }
+  }
+
+  Future<Uint8List> _requestBytes(String path, {required Object body}) async {
+    try {
+      final selectedBaseUrl = await _resolveBaseUrl();
+      final headers = <String, String>{'Content-Type': 'application/json'};
+      if (accessToken != null) {
+        headers['Authorization'] = 'Bearer $accessToken';
+      }
+      final response = await _client
+          .post(
+            Uri.parse('$selectedBaseUrl$path'),
+            headers: headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 120));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        String? message;
+        try {
+          final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+          if (errorBody is Map && errorBody['message'] != null) {
+            message = '${errorBody['message']}';
+          }
+        } catch (_) {
+          // Phản hồi lỗi không phải JSON.
+        }
+        throw ApiException(
+          message ?? 'Máy chủ trả về lỗi ${response.statusCode}.',
+        );
+      }
+      return response.bodyBytes;
+    } on http.ClientException catch (error) {
+      _reachableBaseUrl = null;
+      throw ApiException('Mất kết nối tới máy chủ: $error');
+    } on TimeoutException {
+      throw const ApiException('Quá thời gian chờ tạo giọng nói.');
     }
   }
 
@@ -613,6 +658,10 @@ class ApiTaskRepository implements TaskRepository {
   Future<void> testAiSettings() async {
     await _request('/api/settings/ai/test', method: 'POST');
   }
+
+  @override
+  Future<Uint8List> synthesizeSpeech(String text) =>
+      _requestBytes('/api/voice/synthesize', body: {'text': text});
 
   @override
   Future<void> submitFeedback({

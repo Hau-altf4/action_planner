@@ -174,7 +174,7 @@ class _AdminPageState extends State<AdminPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-          ? Center(child: Text('Không thể tải dashboard: $_error'))
+          ? Center(child: Text('Không thể tải bảng điều khiển: $_error'))
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
@@ -229,7 +229,7 @@ class _AdminPageState extends State<AdminPage> {
                       leading: const Icon(Icons.tune),
                       title: const Text('Cấu hình AI mặc định'),
                       subtitle: const Text(
-                        'Áp dụng cho user không dùng API riêng',
+                        'Áp dụng cho người dùng không dùng API riêng',
                       ),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => Navigator.push(
@@ -306,7 +306,7 @@ class _AdminPageState extends State<AdminPage> {
                                   ),
                                   label: Text(
                                     reply.isEmpty
-                                        ? 'Trả lời user'
+                                        ? 'Trả lời người dùng'
                                         : 'Sửa câu trả lời',
                                   ),
                                 ),
@@ -335,7 +335,11 @@ class _AdminPageState extends State<AdminPage> {
                         subtitle: Text(
                           '${user['email']} • tham gia ${_date(user['createdAt'])}',
                         ),
-                        trailing: Text('${user['role'] ?? 'user'}'),
+                        trailing: Text(
+                          '${user['role']}' == 'admin'
+                              ? 'Quản trị viên'
+                              : 'Người dùng',
+                        ),
                       ),
                     ),
                   ),

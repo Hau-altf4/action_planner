@@ -227,6 +227,9 @@ class AppState extends ChangeNotifier {
 
   Future<void> testAiSettings() => repository.testAiSettings();
 
+  Future<Uint8List> synthesizeSpeech(String text) =>
+      repository.synthesizeSpeech(text);
+
   Future<void> submitFeedback({
     required String type,
     required String message,

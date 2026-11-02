@@ -47,7 +47,7 @@ class NotificationService {
     const details = NotificationDetails(
       android: AndroidNotificationDetails(
         'deadline_alerts_v1',
-        'Nhắc deadline',
+        'Nhắc thời hạn',
         importance: Importance.max,
         priority: Priority.high,
         playSound: true,
@@ -57,7 +57,7 @@ class NotificationService {
     await _plugin.show(
       2147483000,
       'Thông báo đã hoạt động',
-      'Bạn sẽ được nhắc trước deadline 10 phút và ngay khi quá hạn.',
+      'Bạn sẽ được nhắc trước thời hạn 10 phút và ngay khi quá hạn.',
       details,
     );
   }
@@ -84,8 +84,8 @@ class NotificationService {
     const details = NotificationDetails(
       android: AndroidNotificationDetails(
         'deadline_alerts_v1',
-        'Nhắc deadline',
-        channelDescription: 'Âm báo riêng cho deadline và công việc quá hạn',
+        'Nhắc thời hạn',
+        channelDescription: 'Âm báo riêng cho thời hạn và công việc quá hạn',
         importance: Importance.max,
         priority: Priority.high,
         playSound: true,
@@ -104,7 +104,7 @@ class NotificationService {
     if (reminderAt.isAfter(now)) {
       await _plugin.zonedSchedule(
         id,
-        'Còn 10 phút đến deadline',
+        'Còn 10 phút đến thời hạn',
         task.title,
         tz.TZDateTime.from(reminderAt.toUtc(), tz.UTC),
         details,

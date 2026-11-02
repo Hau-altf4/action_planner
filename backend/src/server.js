@@ -14,6 +14,8 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import { MongoClient, ObjectId } from 'mongodb';
 
+import { daCauHinhGiongNoi, taoGiongNoi } from './voice.js';
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
@@ -324,7 +326,29 @@ app.get(
         : 'not_configured',
       aiProvider: config.provider,
       aiModel: config.model,
+      voice: daCauHinhGiongNoi() ? 'configured' : 'not_configured',
     });
+  }),
+);
+
+app.post(
+  '/api/voice/synthesize',
+  auth,
+  asyncRoute(async (req, res) => {
+    const text = String(req.body.text || '').trim();
+    if (!text) {
+      return res.status(400).json({ message: 'Vui lòng nhập nội dung cần đọc.' });
+    }
+    if (text.length > 500) {
+      return res.status(400).json({
+        message: 'Nội dung giọng nói không được vượt quá 500 ký tự.',
+      });
+    }
+    const audio = await taoGiongNoi(text);
+    res
+      .set('Cache-Control', 'private, no-store')
+      .type('audio/wav')
+      .send(audio);
   }),
 );
 
@@ -486,7 +510,7 @@ async function openAiResponse(input, instructions, format, config) {
     ) {
       error.statusCode = 402;
       error.message =
-        'Tài khoản OpenAI API đã hết credits. Hãy bổ sung credits trong phần Billing.';
+        'Tài khoản OpenAI API đã hết số dư. Hãy bổ sung trong phần thanh toán.';
     } else if (response.status === 401) {
       error.statusCode = 503;
       error.message = 'OPENAI_API_KEY không hợp lệ hoặc đã bị thu hồi.';
@@ -539,7 +563,7 @@ async function ollamaResponse(input, instructions, format, config) {
     });
   } catch {
     const error = new Error(
-      'Không thể kết nối AI local. Hãy mở Ollama rồi thử lại.',
+      'Không thể kết nối AI trên máy. Hãy mở Ollama rồi thử lại.',
     );
     error.statusCode = 503;
     error.isAiError = true;
@@ -848,9 +872,9 @@ app.post(
         'Trả lời trực tiếp câu hỏi mới dựa trên lịch sử và dữ liệu công việc được cung cấp.',
         'Không được trả lời chung chung kiểu “để tôi kiểm tra” hoặc hứa sẽ làm sau; phải đưa kết quả ngay trong câu trả lời hiện tại.',
         'Không bịa công việc. Nếu thiếu tên công việc hoặc thông tin cần thiết, hãy hỏi đúng một câu làm rõ.',
-        'Khi người dùng yêu cầu chia nhỏ task, đưa ra 3 đến 6 bước hành động ngắn, cụ thể.',
-        'Khi người dùng hỏi về lịch, ưu tiên hoặc deadline, dùng đúng dữ liệu công việc và trình bày dạng danh sách dễ đọc.',
-        'Ví dụ: “Chia nhỏ task Viết báo cáo” → trả lời các bước cụ thể bằng tiếng Việt.',
+        'Khi người dùng yêu cầu chia nhỏ công việc, đưa ra 3 đến 6 bước hành động ngắn, cụ thể.',
+        'Khi người dùng hỏi về lịch, ưu tiên hoặc thời hạn, dùng đúng dữ liệu công việc và trình bày dạng danh sách dễ đọc.',
+        'Ví dụ: “Chia nhỏ công việc Viết báo cáo” → trả lời các bước cụ thể bằng tiếng Việt.',
         'Ví dụ: “Tôi nên làm gì trước?” → chọn công việc phù hợp từ dữ liệu và giải thích ngắn gọn.',
         'Giữ câu trả lời súc tích, thân thiện và không lặp lại câu trước.',
       ].join(' '),

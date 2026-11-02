@@ -47,7 +47,7 @@ class NotificationService {
     _show(
       'notification-test',
       'Thông báo đã hoạt động',
-      'Bạn sẽ được nhắc trước deadline 10 phút và ngay khi quá hạn.',
+      'Bạn sẽ được nhắc trước thời hạn 10 phút và ngay khi quá hạn.',
     );
   }
 
@@ -101,7 +101,7 @@ class NotificationService {
           reminderAt,
           () => _show(
             '${task.id}-reminder',
-            'Còn 10 phút đến deadline',
+            'Còn 10 phút đến thời hạn',
             task.title,
           ),
         )..start(),

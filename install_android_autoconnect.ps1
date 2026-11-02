@@ -2,15 +2,19 @@ $ErrorActionPreference = 'Stop'
 
 $projectPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 $watcherPath = Join-Path $projectPath 'keep_android_connected.ps1'
+$hiddenRunnerPath = Join-Path $projectPath 'run_android_autoconnect_hidden.vbs'
 $taskName = 'Action Planner Android Bridge'
 
 if (-not (Test-Path -LiteralPath $watcherPath)) {
   throw "Watcher script was not found: $watcherPath"
 }
+if (-not (Test-Path -LiteralPath $hiddenRunnerPath)) {
+  throw "Hidden runner was not found: $hiddenRunnerPath"
+}
 
-$arguments = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ' +
-  '"' + $watcherPath + '" -Once'
-$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arguments
+$wscriptPath = Join-Path $env:WINDIR 'System32\wscript.exe'
+$arguments = '//B //Nologo "' + $hiddenRunnerPath + '"'
+$action = New-ScheduledTaskAction -Execute $wscriptPath -Argument $arguments
 $logonTrigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 # Chạy một lần kiểm tra ngắn mỗi phút thay vì giữ một PowerShell sống mãi.
 # Flutter/ADB có thể dừng tiến trình nền khi khởi động lại ADB server; lần chạy
@@ -27,7 +31,8 @@ $settings = New-ScheduledTaskSettingsSet `
   -RestartCount 999 `
   -RestartInterval (New-TimeSpan -Minutes 1) `
   -ExecutionTimeLimit ([TimeSpan]::Zero) `
-  -MultipleInstances IgnoreNew
+  -MultipleInstances IgnoreNew `
+  -Hidden
 
 Register-ScheduledTask `
   -TaskName $taskName `
@@ -47,6 +52,7 @@ Write-Host "Installed: $taskName"
 Write-Host "State: $($task.State)"
 Write-Host "Last result: $($taskInfo.LastTaskResult)"
 Write-Host "Triggers: $triggerCount (logon + every minute)"
+Write-Host 'Mode: completely hidden (wscript.exe; no console window)'
 
 if ($triggerCount -lt 2) {
   throw 'Scheduled Task was installed without the repeating watchdog trigger.'

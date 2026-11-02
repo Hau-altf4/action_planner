@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 import '../models/task.dart';
 import '../state/app_state.dart';
@@ -80,7 +82,7 @@ class _HomePageState extends State<HomePage> {
           ? FloatingActionButton.extended(
               onPressed: _addTask,
               icon: const Icon(Icons.add),
-              label: const Text('Thêm task'),
+              label: const Text('Thêm công việc'),
             )
           : null,
       bottomNavigationBar: NavigationBar(
@@ -91,7 +93,7 @@ class _HomePageState extends State<HomePage> {
             icon: Icon(Icons.today_outlined),
             label: 'Hôm nay',
           ),
-          NavigationDestination(icon: Icon(Icons.task_alt), label: 'Task'),
+          NavigationDestination(icon: Icon(Icons.task_alt), label: 'Công việc'),
           NavigationDestination(
             icon: Icon(Icons.calendar_month_outlined),
             label: 'Lịch',
@@ -151,7 +153,7 @@ class DashboardView extends StatelessWidget {
                         'Tiến độ hôm nay',
                         style: TextStyle(fontWeight: FontWeight.w600),
                       ),
-                      Text('$completed/${appState.tasks.length} task'),
+                      Text('$completed/${appState.tasks.length} công việc'),
                     ],
                   ),
                   const SizedBox(height: 14),
@@ -353,6 +355,8 @@ class TaskCard extends StatelessWidget {
                       ],
                     ),
                   ),
+                  _VoiceButton(appState: appState, text: _speechText()),
+                  const SizedBox(width: 8),
                   Container(
                     width: 10,
                     height: 10,
@@ -407,6 +411,11 @@ class TaskCard extends StatelessWidget {
                     );
                   },
                 ),
+                _VoiceButton(
+                  appState: appState,
+                  text: _speechText(),
+                  showLabel: true,
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -454,6 +463,141 @@ class TaskCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  String _speechText() {
+    final parts = <String>[
+      task.title,
+      if (task.description.trim().isNotEmpty) task.description.trim(),
+      if (task.steps.isNotEmpty)
+        'Các bước thực hiện. ${task.steps.map((step) => step.title).join('. ')}',
+      if (task.aiSuggestion?.trim().isNotEmpty == true)
+        'Gợi ý. ${task.aiSuggestion!.trim()}',
+    ];
+    final text = parts.join('. ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    return text.length <= 500 ? text : text.substring(0, 500);
+  }
+}
+
+class _VoiceButton extends StatefulWidget {
+  const _VoiceButton({
+    required this.appState,
+    required this.text,
+    this.showLabel = false,
+  });
+
+  final AppState appState;
+  final String text;
+  final bool showLabel;
+
+  @override
+  State<_VoiceButton> createState() => _VoiceButtonState();
+}
+
+class _VoiceButtonState extends State<_VoiceButton> {
+  final AudioPlayer _player = AudioPlayer();
+  final FlutterTts _deviceVoice = FlutterTts();
+  bool _loading = false;
+  bool _playing = false;
+  bool _usingDeviceVoice = false;
+  StreamSubscription<void>? _completedSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _completedSubscription = _player.onPlayerComplete.listen((_) {
+      if (mounted) setState(() => _playing = false);
+    });
+  }
+
+  Future<void> _toggle() async {
+    if (_playing) {
+      await _player.stop();
+      await _deviceVoice.stop();
+      if (mounted) setState(() => _playing = false);
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      final audio = await widget.appState.synthesizeSpeech(widget.text);
+      await _player.play(BytesSource(audio));
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _playing = true;
+          _usingDeviceVoice = false;
+        });
+      }
+    } catch (_) {
+      if (!mounted) return;
+      try {
+        await _deviceVoice.setLanguage('vi-VN');
+        await _deviceVoice.setSpeechRate(0.48);
+        await _deviceVoice.setVolume(1);
+        await _deviceVoice.setPitch(1);
+        await _deviceVoice.awaitSpeakCompletion(true);
+        if (!mounted) return;
+        setState(() {
+          _loading = false;
+          _playing = true;
+          _usingDeviceVoice = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Đang dùng giọng đọc của điện thoại vì vietTTS trên máy chủ chưa sẵn sàng.',
+            ),
+          ),
+        );
+        final result = await _deviceVoice.speak(widget.text);
+        if (result != 1) {
+          throw StateError('Điện thoại không khởi động được giọng đọc.');
+        }
+        if (mounted) setState(() => _playing = false);
+      } catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Không thể đọc nội dung: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _completedSubscription?.cancel();
+    _player.dispose();
+    _deviceVoice.stop();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = _loading
+        ? const SizedBox.square(
+            dimension: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        : Icon(
+            _playing ? Icons.stop_circle_outlined : Icons.volume_up_outlined,
+          );
+    final tooltip = _playing
+        ? (_usingDeviceVoice ? 'Dừng giọng điện thoại' : 'Dừng đọc')
+        : 'Đọc công việc';
+    if (widget.showLabel) {
+      return TextButton.icon(
+        onPressed: _loading ? null : _toggle,
+        icon: icon,
+        label: Text(tooltip),
+      );
+    }
+    return IconButton(
+      onPressed: _loading ? null : _toggle,
+      tooltip: tooltip,
+      icon: icon,
     );
   }
 }
@@ -728,9 +872,9 @@ class _AiViewState extends State<AiView> {
     final suggestions = <String>[
       'Xem lịch hôm nay',
       'Việc nào cần ưu tiên?',
-      'Task nào sắp hết hạn?',
+      'Công việc nào sắp hết hạn?',
       if (activeTasks.isNotEmpty)
-        'Chia nhỏ task "${activeTasks.first.title}"'
+        'Chia nhỏ công việc "${activeTasks.first.title}"'
       else
         'Hướng dẫn tôi chia nhỏ một công việc',
     ];
@@ -805,7 +949,7 @@ class _AiViewState extends State<AiView> {
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) => _send(),
                     decoration: const InputDecoration(
-                      hintText: 'Hỏi AI hoặc yêu cầu chia nhỏ task...',
+                      hintText: 'Hỏi AI hoặc yêu cầu chia nhỏ công việc...',
                     ),
                   ),
                 ),
@@ -848,7 +992,7 @@ class ProfileView extends StatelessWidget {
               if (kIsWeb)
                 ListTile(
                   leading: const Icon(Icons.notifications_outlined),
-                  title: const Text('Bật nhắc deadline trên web'),
+                  title: const Text('Bật nhắc thời hạn trên web'),
                   subtitle: const Text(
                     'Bật âm báo, nhắc trước 10 phút và báo ngay khi quá hạn.',
                   ),
@@ -865,7 +1009,7 @@ class ProfileView extends StatelessWidget {
                         SnackBar(
                           content: Text(
                             granted
-                                ? 'Đã bật nhắc deadline. Một thông báo thử vừa được phát.'
+                                ? 'Đã bật nhắc thời hạn. Một thông báo thử vừa được phát.'
                                 : 'Không thể bật thông báo trên thiết bị này.',
                           ),
                         ),
@@ -876,7 +1020,7 @@ class ProfileView extends StatelessWidget {
               else
                 ListTile(
                   leading: const Icon(Icons.notifications_outlined),
-                  title: const Text('Bật thông báo deadline'),
+                  title: const Text('Bật thông báo thời hạn'),
                   subtitle: const Text('Nhắc trước 10 phút và báo quá hạn'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () async {
@@ -918,7 +1062,9 @@ class ProfileView extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.feedback_outlined),
                 title: const Text('Đề xuất, đánh giá & khiếu nại'),
-                subtitle: const Text('Xem trạng thái và câu trả lời từ admin'),
+                subtitle: const Text(
+                  'Xem trạng thái và câu trả lời từ quản trị viên',
+                ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.push(
                   context,
@@ -931,7 +1077,7 @@ class ProfileView extends StatelessWidget {
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.admin_panel_settings_outlined),
-                  title: const Text('Dashboard quản trị'),
+                  title: const Text('Bảng điều khiển quản trị'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.push(
                     context,

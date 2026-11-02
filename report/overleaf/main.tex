@@ -1,0 +1,467 @@
+% Biên dịch bằng XeLaTeX trên Overleaf.
+\documentclass[12pt,a4paper,oneside]{report}
+\usepackage[a4paper,top=2.2cm,bottom=2.2cm,left=3.2cm,right=2cm]{geometry}
+\usepackage{fontspec}
+\IfFontExistsTF{TeX Gyre Termes}{
+  \setmainfont{TeX Gyre Termes}
+  \setsansfont{TeX Gyre Heros}
+  \setmonofont{DejaVu Sans Mono}[Scale=0.84]
+}{
+  \setmainfont{Times New Roman}
+  \setsansfont{Arial}
+  \setmonofont{Consolas}[Scale=0.84]
+}
+\usepackage[vietnamese]{babel}
+\usepackage{microtype,setspace,graphicx,booktabs,longtable,tabularx,array,multirow}
+\usepackage{enumitem,amsmath,amssymb,float,caption,xcolor,listings,tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit}
+\usepackage{fancyhdr,titlesec,tocloft,hyperref,url}
+\onehalfspacing
+
+\definecolor{schoolred}{HTML}{A61B1B}
+\definecolor{schoolblue}{HTML}{173F7A}
+\definecolor{codegreen}{HTML}{1B6E3C}
+\definecolor{codegray}{HTML}{F4F5F7}
+\hypersetup{colorlinks=true,linkcolor=schoolblue,citecolor=schoolblue,urlcolor=schoolblue,
+  pdftitle={Báo cáo hệ thống thông tin chủ động cho hành động cá nhân},
+  pdfauthor={Võ Trọng Tài và Nguyễn Cao Hậu}}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small Hệ thống thông tin chủ động cho hành động cá nhân}
+\fancyhead[R]{\small\leftmark}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\setlength{\headheight}{15pt}
+\titleformat{\chapter}[display]{\bfseries\centering}{\large CHƯƠNG \thechapter}{8pt}{\Large}
+\titleformat{\section}{\bfseries\large}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\bfseries}{\thesubsection}{0.7em}{}
+\setlist{nosep,leftmargin=1.7em}
+\captionsetup{font=small,labelfont=bf}
+\lstdefinestyle{source}{backgroundcolor=\color{codegray},basicstyle=\ttfamily\footnotesize,
+ keywordstyle=\color{schoolblue}\bfseries,stringstyle=\color{codegreen},commentstyle=\color{gray},
+ numbers=left,numberstyle=\tiny\color{gray},breaklines=true,frame=single,
+ rulecolor=\color{gray!35},showstringspaces=false,tabsize=2,captionpos=b}
+\lstset{style=source}
+
+% Bổ sung MSSV còn thiếu tại đây trước khi nộp.
+\newcommand{\studentOne}{Võ Trọng Tài}
+\newcommand{\studentOneId}{2351220084}
+\newcommand{\studentTwo}{Nguyễn Cao Hậu}
+\newcommand{\studentTwoId}{\textit{Bổ sung MSSV}}
+\newcommand{\advisor}{TS. Đỗ Phúc Hảo}
+\newcommand{\placeholderfigure}[2]{\begin{figure}[H]\centering
+ \IfFileExists{#1}{\includegraphics[width=0.78\textwidth,height=0.58\textheight,keepaspectratio]{#1}}
+ {\fbox{\parbox[c][4.5cm][c]{0.76\textwidth}{\centering Bổ sung ảnh vào thư mục
+ \texttt{images/}\\[4pt]\texttt{#1}}}}\caption{#2}\end{figure}}
+
+\begin{document}
+\pagenumbering{gobble}
+\begin{titlepage}
+\begin{tikzpicture}[remember picture,overlay]
+ \draw[schoolred,line width=1.2pt] ([xshift=1.1cm,yshift=-1.1cm]current page.north west)
+ rectangle ([xshift=-1.1cm,yshift=1.1cm]current page.south east);
+ \draw[schoolred,line width=0.4pt] ([xshift=1.25cm,yshift=-1.25cm]current page.north west)
+ rectangle ([xshift=-1.25cm,yshift=1.25cm]current page.south east);
+\end{tikzpicture}
+\begin{center}
+{\bfseries BỘ GIÁO DỤC VÀ ĐÀO TẠO\\[4pt]}
+{\bfseries\color{schoolred} TRƯỜNG ĐẠI HỌC KIẾN TRÚC ĐÀ NẴNG\\}
+{\bfseries\color{schoolblue} KHOA CÔNG NGHỆ THÔNG TIN}
+\vspace{1.3cm}
+\IfFileExists{images/logo-truong.png}{\includegraphics[height=3cm]{images/logo-truong.png}}
+ {\fbox{\parbox[c][2.5cm][c]{3.5cm}{\centering LOGO TRƯỜNG}}}
+\vspace{1cm}
+{\Large\bfseries BÁO CÁO ĐỒ ÁN MÔN HỌC\\[0.7cm]}
+{\large\bfseries ĐỀ TÀI:\\[0.3cm]}
+{\LARGE\bfseries\color{schoolred} XÂY DỰNG HỆ THỐNG THÔNG TIN CHỦ ĐỘNG\\
+CHO HÀNH ĐỘNG CÁ NHÂN}
+\vfill
+\begin{tabular}{>{\bfseries}p{4.2cm}p{9.2cm}}
+Sinh viên thực hiện: & \studentOne{} -- MSSV: \studentOneId\\
+& \studentTwo{} -- MSSV: \studentTwoId\\[4pt]
+Giảng viên hướng dẫn: & \advisor\\
+Chuyên ngành: & Công nghệ thông tin\\
+Công nghệ cốt lõi: & Flutter, Node.js/Express, MongoDB, AI và TTS tiếng Việt\\
+Mã nguồn: & \url{https://github.com/Hau-altf4/action_planner}
+\end{tabular}
+\vfill
+{\bfseries Đà Nẵng -- 2026}
+\end{center}
+\end{titlepage}
+
+\clearpage\pagenumbering{roman}
+\chapter*{LỜI CAM ĐOAN}\addcontentsline{toc}{chapter}{LỜI CAM ĐOAN}
+Chúng tôi cam đoan báo cáo mô tả trung thực sản phẩm phần mềm do nhóm xây dựng.
+Các công nghệ, thư viện mã nguồn mở và tài liệu tham khảo được ghi nhận tại cuối báo cáo.
+Những số liệu kiểm thử chỉ sử dụng kết quả có thể tái lập từ mã nguồn và lệnh kiểm tra;
+báo cáo không sử dụng các con số hiệu năng chưa được đo đạc.
+\vspace{1.5cm}
+\begin{flushright}Đà Nẵng, ngày \ldots{} tháng \ldots{} năm 2026\\
+\textbf{Sinh viên thực hiện}\\[1.8cm]
+\studentOne{} \hspace{1.4cm} \studentTwo\end{flushright}
+
+\chapter*{LỜI CẢM ƠN}\addcontentsline{toc}{chapter}{LỜI CẢM ƠN}
+Nhóm xin trân trọng cảm ơn \advisor{} đã hướng dẫn phương pháp phân tích hệ thống,
+góp ý kiến trúc và hỗ trợ nhóm hoàn thiện đồ án. Nhóm cũng cảm ơn quý Thầy/Cô Khoa
+Công nghệ Thông tin, Trường Đại học Kiến trúc Đà Nẵng đã trang bị kiến thức về lập
+trình, cơ sở dữ liệu, trí tuệ nhân tạo và quy trình phát triển phần mềm.
+
+\chapter*{TÓM TẮT ĐỒ ÁN}\addcontentsline{toc}{chapter}{TÓM TẮT ĐỒ ÁN}
+Đồ án xây dựng hệ thống quản lý hành động cá nhân đa nền tảng, hỗ trợ tài khoản riêng,
+quản lý vòng đời công việc, lập lịch theo khối thời gian, nhắc hạn, trợ lý AI, phản hồi,
+quản trị và đọc nội dung bằng giọng nói tiếng Việt. Ứng dụng khách dùng Flutter; máy chủ
+dùng Node.js, Express và MongoDB Native Driver; dữ liệu lưu trong MongoDB. Trợ lý AI
+hỗ trợ Ollama, OpenAI, Google Gemini và Anthropic. Khóa API cá nhân được mã hóa
+AES-256-GCM tại máy chủ. Tính năng giọng nói ưu tiên vietTTS và tự chuyển sang giọng
+đọc hệ thống trên thiết bị khi mô hình cục bộ chưa sẵn sàng.
+
+Hệ thống được kiểm tra bằng \texttt{flutter analyze}, bảy kiểm thử Flutter tự động,
+kiểm tra cú pháp Node.js và quá trình tạo APK debug. Kết quả: không có lỗi phân tích
+tĩnh, 7/7 kiểm thử đạt và APK được tạo thành công.
+
+\textbf{Từ khóa:} Flutter, MongoDB, Node.js, quản lý công việc, AI, Ollama, vietTTS,
+JWT, thông báo cục bộ.
+
+\tableofcontents\listoffigures\listoftables
+\clearpage\pagenumbering{arabic}
+
+\chapter{MỞ ĐẦU}
+\section{Đặt vấn đề}
+Người dùng thường lưu công việc ở nhiều nơi như sổ tay, tin nhắn, email và ứng dụng
+ghi chú. Dữ liệu phân tán làm tăng tải ghi nhớ, giảm khả năng xác định việc ưu tiên và
+dễ dẫn đến bỏ lỡ thời hạn. Một hệ thống quản lý hành động cá nhân cần không chỉ ghi
+nhận công việc mà còn hỗ trợ lập kế hoạch, nhắc hạn và đưa ra gợi ý có căn cứ.
+
+\section{Mục tiêu}
+Mục tiêu tổng quát là xây dựng ứng dụng đa nền tảng giúp người dùng quản lý công việc
+từ lúc tạo, phân tích, lập lịch, theo dõi tiến độ đến hoàn thành, đồng thời bảo vệ dữ liệu
+theo từng tài khoản. Các mục tiêu cụ thể gồm:
+\begin{itemize}
+ \item Xây dựng ứng dụng Flutter dùng chung mã nguồn cho nhiều nền tảng.
+ \item Xây dựng REST API có JWT và phân quyền người dùng/quản trị viên.
+ \item Lưu công việc, cấu hình, phản hồi và thống kê trong MongoDB.
+ \item Tích hợp AI để phân tích, chia nhỏ và lập lại lịch công việc.
+ \item Nhắc hạn và đọc nội dung bằng vietTTS hoặc giọng đọc trên thiết bị.
+ \item Cung cấp bảng điều khiển quản trị và luồng tiếp nhận phản hồi.
+\end{itemize}
+
+\section{Phạm vi}
+Đề tài tập trung vào quản lý công việc cá nhân. Hệ thống chưa triển khai cộng tác nhóm,
+biểu đồ Gantt, đồng bộ lịch ngoài hoặc nhận dạng giọng nói. Voice hiện tại là chuyển văn
+bản thành tiếng nói (TTS), không phải chuyển giọng nói thành văn bản (STT).
+
+\section{Phương pháp thực hiện}
+Nhóm áp dụng khảo sát yêu cầu, mô hình hóa kiến trúc, phát triển lặp, kiểm thử tự động
+và kiểm chứng trên Android. Nội dung được đối chiếu trực tiếp với mã nguồn tại
+\url{https://github.com/Hau-altf4/action_planner}.
+
+\chapter{CƠ SỞ LÝ THUYẾT VÀ CÔNG NGHỆ}
+\section{Quản lý công việc và Time-Blocking}
+Time-Blocking chia ngày thành các khoảng dành riêng cho từng nhiệm vụ. Trong hệ thống,
+mỗi công việc có thời lượng ước tính; lịch bắt đầu được xác định và các công việc liên
+tiếp cách nhau 10 phút. Người dùng có thể yêu cầu AI đề xuất lại thứ tự, xem trước và
+chỉ lưu phương án sau khi xác nhận.
+
+\section{Flutter và quản lý trạng thái}
+Flutter cung cấp widget đa nền tảng. Dự án sử dụng \texttt{AppState} kế thừa
+\texttt{ChangeNotifier}; các màn hình nhận cùng thể hiện trạng thái qua hàm khởi tạo.
+Cách tổ chức này phù hợp quy mô đồ án và không phụ thuộc gói Provider bên ngoài.
+
+\section{REST, JWT và MongoDB}
+Flutter giao tiếp với Express qua JSON/HTTP. JWT chứa định danh, email và vai trò;
+middleware xác minh token trước khi truy cập dữ liệu. Mật khẩu được băm bằng bcrypt.
+Dự án dùng MongoDB Native Driver trực tiếp, không dùng Mongoose.
+
+\section{AI đa nhà cung cấp}
+Máy chủ chuẩn hóa bốn nhà cung cấp: Ollama, OpenAI, Gemini và Anthropic. Ollama là
+lựa chọn mặc định chạy cục bộ; cấu hình quản trị hoặc cấu hình riêng của người dùng có
+thể ghi đè. Kết quả AI được làm sạch và kiểm tra trước khi chuyển thành dữ liệu ứng dụng.
+
+\section{Text-to-Speech tiếng Việt}
+vietTTS chuyển văn bản tiếng Việt thành dạng sóng âm. Backend gọi Python bằng danh
+sách tham số an toàn, sinh WAV trong thư mục tạm và xóa sau khi trả kết quả. Khi Python
+hoặc mô hình chưa được cài, Flutter chuyển sang \texttt{flutter\_tts} trên thiết bị.
+
+\chapter{PHÂN TÍCH YÊU CẦU}
+\section{Tác nhân}
+\begin{table}[H]\centering\caption{Tác nhân của hệ thống}
+\begin{tabularx}{\textwidth}{p{3.2cm}X}\toprule
+\textbf{Tác nhân} & \textbf{Quyền và trách nhiệm}\\\midrule
+Người dùng & Đăng ký, đăng nhập, quản lý công việc, lịch, AI, voice, phản hồi và cấu hình AI cá nhân.\\
+Quản trị viên & Xem chỉ số, người dùng, phản hồi, trả lời và cấu hình AI mặc định.\\
+Dịch vụ AI & Phân tích công việc, hội thoại và đề xuất lịch.\\
+Bộ máy TTS & Chuyển nội dung thành WAV hoặc phát bằng giọng thiết bị.\\\bottomrule
+\end{tabularx}\end{table}
+
+\section{Yêu cầu chức năng}
+\begin{longtable}{p{1.1cm}p{4.3cm}p{9.4cm}}
+\caption{Yêu cầu chức năng đã hiện thực}\label{tab:functions}\\
+\toprule\textbf{Mã}&\textbf{Nhóm}&\textbf{Mô tả}\\\midrule\endfirsthead
+\toprule\textbf{Mã}&\textbf{Nhóm}&\textbf{Mô tả}\\\midrule\endhead
+F01&Tài khoản&Đăng ký, đăng nhập, khôi phục phiên, đăng xuất; vai trò user/admin.\\
+F02&Công việc&Tạo, cập nhật, xem, lọc trạng thái và đổi trạng thái.\\
+F03&Chi tiết&Danh mục, ưu tiên, thời lượng, hạn, bước nhỏ và gợi ý AI.\\
+F04&Lịch&Tạo lịch theo thời lượng, xem và xác nhận phương án lập lại lịch.\\
+F05&AI&Hội thoại theo ngữ cảnh, phân tích và chia nhỏ công việc.\\
+F06&Thông báo&Nhắc trước hạn 10 phút và cảnh báo tại thời điểm hạn.\\
+F07&Giọng nói&Đọc bằng vietTTS; dự phòng bằng TTS của thiết bị.\\
+F08&Phản hồi&Gửi đề xuất, khiếu nại, đánh giá và xem trả lời.\\
+F09&Quản trị&Chỉ số, người dùng, phản hồi và cấu hình AI mặc định.\\
+F10&Cache&Lưu danh sách công việc gần nhất để mở ứng dụng nhanh.\\\bottomrule
+\end{longtable}
+
+\section{Yêu cầu phi chức năng}
+\begin{itemize}
+ \item \textbf{Bảo mật:} bcrypt, JWT hết hạn 7 ngày, AES-256-GCM và không commit \texttt{.env}.
+ \item \textbf{Tách dữ liệu:} truy vấn công việc ràng buộc \texttt{userId} từ token.
+ \item \textbf{Khả dụng:} cache danh sách và TTS dự phòng trên thiết bị.
+ \item \textbf{Bảo trì:} repository tách HTTP khỏi UI; voice backend ở mô-đun riêng.
+ \item \textbf{Đa nền tảng:} khung dự án hỗ trợ Android, iOS, web và desktop.
+\end{itemize}
+
+\chapter{THIẾT KẾ HỆ THỐNG}
+\section{Kiến trúc tổng thể}
+\begin{figure}[H]\centering
+\begin{tikzpicture}[node distance=1.2cm and 1.1cm,
+ box/.style={draw,rounded corners,minimum width=3.2cm,minimum height=1.1cm,align=center,fill=schoolblue!8},
+ ext/.style={draw,rounded corners,minimum width=2.9cm,minimum height=.9cm,align=center,fill=schoolred!7},
+ flow/.style={-{Latex[length=2.5mm]},thick}]
+\node[box](ui){Flutter UI\\Mobile/Web/Desktop};
+\node[box,right=of ui](state){AppState + Repository\\HTTP, cache, token};
+\node[box,right=of state](api){Node.js + Express\\JWT và nghiệp vụ};
+\node[box,below=of api](db){MongoDB\\6 collection};
+\node[ext,above left=.8cm and -.2cm of api](ai){Ollama/OpenAI\\Gemini/Anthropic};
+\node[ext,above right=.8cm and -.2cm of api](tts){vietTTS\\Python + mô hình};
+\draw[flow](ui)--(state);\draw[flow](state)--node[above]{JSON/HTTP}(api);
+\draw[flow](api)--(db);\draw[flow](api)--(ai);\draw[flow](api)--(tts);
+\draw[flow,dashed,bend left=28](ui)to node[below]{TTS dự phòng}(tts);
+\end{tikzpicture}\caption{Kiến trúc triển khai thực tế}\end{figure}
+
+\section{Thiết kế dữ liệu}
+\begin{table}[H]\centering\caption{Các collection MongoDB thực tế}
+\begin{tabularx}{\textwidth}{p{3.2cm}X}\toprule\textbf{Collection}&\textbf{Nội dung}\\\midrule
+\texttt{users}&Hồ sơ, email, passwordHash, role và thời điểm hoạt động.\\
+\texttt{tasks}&Công việc, ưu tiên, trạng thái, thời lượng, hạn, lịch, bước và gợi ý AI.\\
+\texttt{user\_settings}&Cấu hình AI riêng và khóa đã mã hóa.\\
+\texttt{app\_settings}&Cấu hình AI mặc định của quản trị viên.\\
+\texttt{feedback}&Loại, nội dung, đánh giá, trạng thái và câu trả lời.\\
+\texttt{ai\_usage}&Nhà cung cấp, mô hình, độ trễ; tự hết hạn sau 90 ngày.\\\bottomrule
+\end{tabularx}\end{table}
+
+\begin{table}[H]\centering\caption{Các trường chính của document tasks}
+\begin{tabularx}{\textwidth}{p{3.1cm}p{3cm}X}\toprule\textbf{Trường}&\textbf{Kiểu}&\textbf{Ý nghĩa}\\\midrule
+\texttt{userId}&ObjectId&Chủ sở hữu lấy từ JWT.\\
+\texttt{title}, \texttt{description}&String&Tiêu đề và mô tả.\\
+\texttt{category}&String&Danh mục hiển thị.\\
+\texttt{priority}&String&low, medium, high, urgent.\\
+\texttt{status}&String&pending, inProgress, completed.\\
+\texttt{estimatedMinutes}&Number&Thời lượng dự kiến.\\
+\texttt{deadline}&Date&Hạn hoàn thành.\\
+\texttt{scheduledStart}&Date/null&Thời điểm bắt đầu.\\
+\texttt{steps}&Array&Các bước con gồm id, title, status.\\
+\texttt{aiSuggestion}&String/null&Gợi ý AI.\\\bottomrule
+\end{tabularx}\end{table}
+
+\section{Thiết kế API}
+\small
+\begin{longtable}{p{1.5cm}p{5.2cm}p{7.4cm}}
+\caption{Các endpoint được triển khai}\label{tab:api}\\
+\toprule\textbf{HTTP}&\textbf{Endpoint}&\textbf{Chức năng}\\\midrule\endfirsthead
+\toprule\textbf{HTTP}&\textbf{Endpoint}&\textbf{Chức năng}\\\midrule\endhead
+GET&\texttt{/health}&Kiểm tra MongoDB, AI và voice.\\
+POST&\texttt{/api/auth/register}&Đăng ký và cấp JWT.\\
+POST&\texttt{/api/auth/login}&Đăng nhập và cấp JWT.\\
+GET&\texttt{/api/auth/me}&Khôi phục hồ sơ.\\
+GET/POST&\texttt{/api/tasks}&Lấy danh sách/tạo công việc.\\
+PUT&\texttt{/api/tasks/:id}&Cập nhật công việc.\\
+PATCH&\texttt{/api/tasks/:id/status}&Cập nhật trạng thái.\\
+POST&\texttt{/api/ai/chat}&Hội thoại AI.\\
+POST&\texttt{/api/ai/analyze-task}&Phân tích công việc.\\
+POST&\texttt{/api/plans/replan}&Tạo phương án lịch.\\
+POST&\texttt{/api/plans/replan/accept}&Xác nhận phương án.\\
+GET/PUT&\texttt{/api/settings/ai}&Đọc/lưu AI riêng.\\
+POST&\texttt{/api/settings/ai/test}&Kiểm tra AI.\\
+POST/GET&\texttt{/api/feedback}&Gửi/xem phản hồi.\\
+POST&\texttt{/api/voice/synthesize}&Tạo WAV bằng vietTTS.\\
+GET&\texttt{/api/admin/dashboard}&Chỉ số quản trị.\\
+GET&\texttt{/api/admin/users}&Danh sách người dùng.\\
+GET/PATCH&\texttt{/api/admin/feedback[/:id]}&Quản lý phản hồi.\\
+GET/PUT&\texttt{/api/admin/settings/ai}&AI mặc định.\\\bottomrule
+\end{longtable}\normalsize
+
+\chapter{CÀI ĐẶT VÀ HIỆN THỰC}
+\section{Cấu trúc mã nguồn}
+\begin{lstlisting}[caption={Cấu trúc rút gọn của repository}]
+action_planner/
+|-- lib/
+|   |-- data/task_repository.dart
+|   |-- models/       |-- services/
+|   |-- state/app_state.dart
+|   `-- ui/
+|-- backend/src/server.js
+|-- backend/src/voice.js
+|-- android/ ios/ web/ windows/ linux/ macos/
+|-- test/widget_test.dart
+`-- report/overleaf/
+\end{lstlisting}
+
+\section{Đăng nhập và dữ liệu}
+Ứng dụng thử các địa chỉ backend phù hợp thiết bị, gọi endpoint đăng nhập, lưu JWT
+trong \texttt{flutter\_secure\_storage} trên native hoặc SharedPreferences trên web.
+Khi mở lại, ứng dụng gọi \texttt{/api/auth/me}; token lỗi được xóa. Repository ánh xạ
+JSON thành \texttt{PlannerTask}. Danh sách máy chủ trả về được cache cục bộ.
+
+\section{Lịch và thông báo}
+Lịch chỉ chứa công việc chưa hoàn thành và ưu tiên \texttt{scheduledStart} đã lưu.
+Ứng dụng dùng \texttt{flutter\_local\_notifications} và timezone, lên lịch nhắc trước
+hạn 10 phút và cảnh báo tại thời điểm hạn. Khi hoàn thành, thông báo được hủy/lập lại.
+
+\section{Bảo mật khóa AI}
+Khóa API không được trả lại client. Backend băm bí mật cấu hình thành khóa 256 bit,
+mã hóa AES-256-GCM với IV ngẫu nhiên 12 byte, lưu IV, authentication tag và ciphertext.
+Màn hình chỉ nhận cờ \texttt{hasApiKey}.
+
+\placeholderfigure{images/dang-nhap.png}{Màn hình đăng nhập}
+\placeholderfigure{images/danh-sach-cong-viec.png}{Danh sách công việc và nút voice}
+\placeholderfigure{images/chinh-sua-cong-viec.png}{Màn hình tạo và phân tích công việc}
+
+\chapter{TRỢ LÝ AI VÀ GIỌNG NÓI}
+\section{Luồng xử lý AI}
+\begin{figure}[H]\centering
+\begin{tikzpicture}[node distance=.8cm,
+ flowstep/.style={draw,rounded corners,fill=schoolblue!7,text width=11.8cm,minimum height=.85cm,align=center},
+ flow/.style={-{Latex[length=2.5mm]},thick}]
+\node[flowstep](a){Người dùng nhập câu hỏi hoặc yêu cầu phân tích};
+\node[flowstep,below=of a](b){Flutter gửi JWT, lịch sử và dữ liệu cần thiết};
+\node[flowstep,below=of b](c){Backend chọn cấu hình cá nhân, quản trị hoặc môi trường};
+\node[flowstep,below=of c](d){Gọi Ollama/OpenAI/Gemini/Anthropic và ghi nhận độ trễ};
+\node[flowstep,below=of d](e){Chuẩn hóa kết quả và trả về Flutter};
+\draw[flow](a)--(b);\draw[flow](b)--(c);\draw[flow](c)--(d);\draw[flow](d)--(e);
+\end{tikzpicture}\caption{Pipeline trợ lý AI đa nhà cung cấp}\end{figure}
+
+Endpoint phân tích trả mức ưu tiên, thời lượng, bước và gợi ý. Lập lại lịch lấy công
+việc chưa hoàn thành, tạo phương án xem trước và chỉ lưu khi người dùng chọn áp dụng.
+Nếu AI không khả dụng, backend có logic dự phòng dựa trên ưu tiên và thời hạn.
+
+\section{Thiết kế voice}
+\begin{figure}[H]\centering
+\begin{tikzpicture}[node distance=1cm and 1cm,
+ box/.style={draw,rounded corners,fill=schoolred!6,minimum width=3cm,minimum height=.9cm,align=center},
+ flow/.style={-{Latex[length=2.5mm]},thick}]
+\node[box](tap){Bấm nút loa};\node[box,right=of tap](post){POST voice\\JWT + văn bản};
+\node[box,right=of post](engine){vietTTS\\tạo WAV};
+\node[box,below=of engine](fallback){TTS hệ thống\\vi-VN};
+\node[box,left=of fallback](play){Phát và dừng\\âm thanh};
+\draw[flow](tap)--(post);\draw[flow](post)--(engine);\draw[flow](engine)--(play);
+\draw[flow,dashed](post)--node[right]{lỗi/503}(fallback);\draw[flow](fallback)--(play);
+\end{tikzpicture}\caption{Luồng vietTTS và dự phòng trên thiết bị}\end{figure}
+
+Nội dung giới hạn 500 ký tự. Backend dùng \texttt{spawn} với \texttt{shell:false},
+giới hạn thời gian, đọc WAV rồi xóa thư mục tạm. Flutter phát WAV bằng
+\texttt{audioplayers}. Nếu backend lỗi, \texttt{flutter\_tts} đọc với locale
+\texttt{vi-VN}. vietTTS chỉ là TTS; tạo công việc bằng giọng nói cần thêm STT và bước
+xác nhận, được xác định là hướng phát triển chứ chưa phải chức năng hoàn thành.
+
+\chapter{KIỂM THỬ VÀ ĐÁNH GIÁ}
+\section{Kết quả có thể tái lập}
+\begin{table}[H]\centering\caption{Kết quả kiểm tra}
+\begin{tabularx}{\textwidth}{p{4cm}p{3cm}X}\toprule
+\textbf{Kiểm tra}&\textbf{Kết quả}&\textbf{Lệnh/minh chứng}\\\midrule
+Phân tích tĩnh Flutter&Đạt, 0 lỗi&\texttt{flutter analyze}\\
+Widget/unit test&Đạt, 7/7&\texttt{flutter test}\\
+Cú pháp backend&Đạt&\texttt{node --check backend/src/server.js}\\
+Cú pháp voice&Đạt&\texttt{node --check backend/src/voice.js}\\
+Biên dịch Android&Đạt&\texttt{flutter build apk --debug}\\
+Health backend&Đạt&MongoDB connected, AI configured; voice phản ánh đúng trạng thái.\\\bottomrule
+\end{tabularx}\end{table}
+
+\section{Bảy kịch bản tự động}
+\begin{enumerate}
+ \item Lịch cố định và giữ nguyên sau vòng chuyển JSON.
+ \item Hiển thị màn hình đăng nhập đúng cấu trúc.
+ \item Nhập tiếng Việt và không tự điền tài khoản.
+ \item Câu trả lời AI cập nhật giao diện an toàn.
+ \item Đăng nhập không áp dụng nhầm quy tắc đăng ký.
+ \item Rời trình chỉnh sửa khi AI chạy không gọi setState sau dispose.
+ \item Yêu cầu sửa phương án lịch thay thế hộp thoại an toàn.
+\end{enumerate}
+
+\section{Đánh giá trung thực}
+Hệ thống đáp ứng các luồng chính và có dự phòng cho AI/voice. Báo cáo không khẳng
+định 120 ms, 60 fps, 80 MB RAM hay độ chính xác AI nếu chưa có benchmark và dữ liệu
+đo đi kèm. Kết quả chỉ sử dụng minh chứng tái lập được.
+
+\chapter{KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN}
+\section{Kết luận}
+Đồ án xây dựng sản phẩm xuyên suốt từ Flutter đến REST API và MongoDB, có xác thực,
+phân quyền, công việc, lịch, thông báo, AI đa nhà cung cấp, quản trị, phản hồi và TTS
+tiếng Việt. Kiến trúc repository và cấu hình môi trường giúp dễ thay AI hoặc bộ máy TTS.
+
+\section{Hạn chế}
+\begin{itemize}
+ \item Chưa có xóa công việc, tìm kiếm toàn văn và cộng tác nhóm.
+ \item Cache phục vụ đọc nhanh; chưa có hàng đợi đồng bộ ngoại tuyến hai chiều.
+ \item vietTTS cần Python/mô hình; giọng dự phòng phụ thuộc thiết bị.
+ \item Chưa có benchmark tự động cho API, FPS và RAM.
+ \item Chưa có kiểm thử tích hợp backend với MongoDB tạm trong CI.
+\end{itemize}
+
+\section{Hướng phát triển}
+\begin{itemize}
+ \item Thêm xóa mềm, tìm kiếm, phân trang và xử lý xung đột đồng bộ.
+ \item Bổ sung STT để tạo công việc bằng giọng nói và xác nhận trước khi lưu.
+ \item Đồng bộ Google/Apple Calendar và hỗ trợ công việc lặp lại.
+ \item Tạo CI chạy phân tích, test Flutter và test API trên mỗi commit.
+ \item Xây dựng benchmark tái lập và theo dõi độ trễ AI.
+ \item Đóng gói vietTTS thành dịch vụ hoặc chuyển sang LightSpeed khi phù hợp.
+\end{itemize}
+
+\appendix
+\chapter{CÀI ĐẶT VÀ TÁI LẬP}
+\section{Backend}
+\begin{lstlisting}[language=bash,caption={Khởi tạo backend}]
+cd backend
+copy .env.example .env
+npm install
+npm run dev
+\end{lstlisting}
+Các biến tối thiểu gồm \texttt{JWT\_SECRET}, \texttt{MONGODB\_URI} và
+\texttt{MONGODB\_DB}. Không commit \texttt{backend/.env}.
+
+\section{Flutter}
+\begin{lstlisting}[language=bash,caption={Chạy và kiểm tra Flutter}]
+flutter pub get
+flutter analyze
+flutter test
+flutter run --dart-define=API_BASE_URL=http://127.0.0.1:3000
+\end{lstlisting}
+Android Emulator dùng \texttt{10.0.2.2}; điện thoại thật có thể dùng
+\texttt{adb reverse tcp:3000 tcp:3000} hoặc địa chỉ LAN.
+
+\section{vietTTS}
+Khai báo \texttt{VIETTTS\_DIR}, \texttt{VIETTTS\_PYTHON},
+\texttt{VIETTTS\_LEXICON} và \texttt{VIETTTS\_TIMEOUT\_MS}. Khi chưa cấu hình,
+health trả \texttt{voice: not\_configured} và Flutter dùng TTS thiết bị.
+
+\chapter{DÙNG TRÊN OVERLEAF}
+\begin{enumerate}
+ \item Tải toàn bộ thư mục \texttt{report/overleaf} lên Overleaf.
+ \item Chọn \textbf{XeLaTeX} tại \textbf{Menu -- Compiler}.
+ \item Sửa \texttt{\string\studentTwoId} ở đầu \texttt{main.tex}.
+ \item Thêm logo/ảnh vào \texttt{images} theo đúng tên gợi ý nếu có.
+ \item Chọn \texttt{main.tex} làm Main document và Recompile.
+\end{enumerate}
+
+\begin{thebibliography}{99}
+\bibitem{flutter} Google, \textit{Flutter Documentation}. \url{https://docs.flutter.dev/}
+\bibitem{dart} Google, \textit{Dart Documentation}. \url{https://dart.dev/guides}
+\bibitem{node} OpenJS Foundation, \textit{Node.js Documentation}. \url{https://nodejs.org/docs/latest/api/}
+\bibitem{express} Express.js, \textit{Express API Reference}. \url{https://expressjs.com/}
+\bibitem{mongodb} MongoDB Inc., \textit{MongoDB Manual}. \url{https://www.mongodb.com/docs/manual/}
+\bibitem{jwt} IETF, \textit{RFC 7519: JSON Web Token}. \url{https://www.rfc-editor.org/rfc/rfc7519}
+\bibitem{ollama} Ollama, \textit{Ollama API}. \url{https://github.com/ollama/ollama/blob/main/docs/api.md}
+\bibitem{openai} OpenAI, \textit{Responses API}. \url{https://platform.openai.com/docs/api-reference/responses}
+\bibitem{viettts} NTT123, \textit{vietTTS}. \url{https://github.com/NTT123/vietTTS}
+\bibitem{fluttertts} flutter\_tts contributors, \textit{Flutter TTS Plugin}. \url{https://pub.dev/packages/flutter_tts}
+\end{thebibliography}
+\end{document}
