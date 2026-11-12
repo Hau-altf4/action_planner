@@ -12,6 +12,7 @@ import 'admin_page.dart';
 import 'feedback_page.dart';
 import 'settings_page.dart';
 import 'task_editor.dart';
+import 'voice_settings_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.appState});
@@ -485,11 +486,13 @@ class _VoiceButton extends StatefulWidget {
     required this.appState,
     required this.text,
     this.showLabel = false,
+    this.label,
   });
 
   final AppState appState;
   final String text;
   final bool showLabel;
+  final String? label;
 
   @override
   State<_VoiceButton> createState() => _VoiceButtonState();
@@ -519,6 +522,11 @@ class _VoiceButtonState extends State<_VoiceButton> {
       return;
     }
     setState(() => _loading = true);
+    if (!widget.appState.voiceSettings.configured ||
+        widget.appState.voiceSettings.engine == 'device') {
+      await _speakWithDevice(showFallbackNotice: false);
+      return;
+    }
     try {
       final audio = await widget.appState.synthesizeSpeech(widget.text);
       await _player.play(BytesSource(audio));
@@ -531,39 +539,87 @@ class _VoiceButtonState extends State<_VoiceButton> {
       }
     } catch (_) {
       if (!mounted) return;
-      try {
-        await _deviceVoice.setLanguage('vi-VN');
-        await _deviceVoice.setSpeechRate(0.48);
-        await _deviceVoice.setVolume(1);
-        await _deviceVoice.setPitch(1);
-        await _deviceVoice.awaitSpeakCompletion(true);
-        if (!mounted) return;
-        setState(() {
-          _loading = false;
-          _playing = true;
-          _usingDeviceVoice = true;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Đang dùng giọng đọc của điện thoại vì vietTTS trên máy chủ chưa sẵn sàng.',
-            ),
-          ),
-        );
-        final result = await _deviceVoice.speak(widget.text);
-        if (result != 1) {
-          throw StateError('Điện thoại không khởi động được giọng đọc.');
-        }
-        if (mounted) setState(() => _playing = false);
-      } catch (error) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Không thể đọc nội dung: $error')),
-        );
-      }
+      await _speakWithDevice(showFallbackNotice: true);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _speakWithDevice({required bool showFallbackNotice}) async {
+    try {
+      await _configureDeviceVoice();
+      await _deviceVoice.setSpeechRate(0.5);
+      await _deviceVoice.setVolume(1);
+      await _deviceVoice.awaitSpeakCompletion(true);
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _playing = true;
+        _usingDeviceVoice = true;
+      });
+      if (showFallbackNotice) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Máy chủ bận, đang dùng giọng đọc của điện thoại.'),
+          ),
+        );
+      }
+      final result = await _deviceVoice.speak(widget.text);
+      if (result != 1) {
+        throw StateError('Điện thoại không khởi động được giọng đọc.');
+      }
+      if (mounted) setState(() => _playing = false);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Không thể đọc nội dung: $error')));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _configureDeviceVoice() async {
+    final settings = widget.appState.voiceSettings;
+    await _deviceVoice.setLanguage('vi-VN');
+    if (settings.deviceVoiceName.isNotEmpty &&
+        settings.deviceVoiceLocale.isNotEmpty) {
+      await _deviceVoice.setVoice({
+        'name': settings.deviceVoiceName,
+        'locale': settings.deviceVoiceLocale,
+      });
+      await _deviceVoice.setPitch(1);
+      return;
+    }
+    await _deviceVoice.setPitch(settings.gender == 'male' ? 0.86 : 1.04);
+
+    final rawVoices = await _deviceVoice.getVoices;
+    if (rawVoices is! List) return;
+    final genderWords = settings.gender == 'male'
+        ? const ['male', 'nam']
+        : const ['female', 'nữ', 'nu'];
+    final regionWords = switch (settings.region) {
+      'central' => const ['central', 'trung'],
+      'southern' => const ['southern', 'south', 'nam'],
+      _ => const ['northern', 'north', 'bắc', 'bac'],
+    };
+    Map<String, String>? best;
+    var bestScore = -1;
+    for (final item in rawVoices) {
+      if (item is! Map) continue;
+      final name = '${item['name'] ?? ''}';
+      final locale = '${item['locale'] ?? ''}';
+      if (!locale.toLowerCase().startsWith('vi')) continue;
+      final searchable = '$name $locale'.toLowerCase();
+      var score = 1;
+      if (genderWords.any(searchable.contains)) score += 2;
+      if (regionWords.any(searchable.contains)) score += 2;
+      if (score > bestScore) {
+        bestScore = score;
+        best = {'name': name, 'locale': locale};
+      }
+    }
+    if (best != null) await _deviceVoice.setVoice(best);
   }
 
   @override
@@ -591,7 +647,7 @@ class _VoiceButtonState extends State<_VoiceButton> {
       return TextButton.icon(
         onPressed: _loading ? null : _toggle,
         icon: icon,
-        label: Text(tooltip),
+        label: Text(widget.label ?? tooltip),
       );
     }
     return IconButton(
@@ -779,7 +835,17 @@ class ScheduleView extends StatelessWidget {
         const SizedBox(height: 20),
         if (schedule.isEmpty)
           const _EmptyState(message: 'Chưa có công việc cần xếp lịch.')
-        else
+        else ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _VoiceButton(
+              appState: appState,
+              text: appState.dayScheduleSpeech(schedule),
+              showLabel: true,
+              label: 'Đọc kế hoạch cả ngày',
+            ),
+          ),
+          const SizedBox(height: 12),
           ...schedule.map((item) {
             final overdue = item.end.isBefore(DateTime.now());
             return IntrinsicHeight(
@@ -802,7 +868,15 @@ class ScheduleView extends StatelessWidget {
                       padding: const EdgeInsets.only(left: 8, bottom: 22),
                       child: Card(
                         child: ListTile(
-                          title: Text(item.title),
+                          title: Align(
+                            alignment: Alignment.centerLeft,
+                            child: _VoiceButton(
+                              appState: appState,
+                              text: appState.scheduleItemSpeech(item),
+                              showLabel: true,
+                              label: item.title,
+                            ),
+                          ),
                           subtitle: Text(
                             '${_time(item.start)} – ${_time(item.end)}'
                             '${overdue ? '  •  Đã quá lịch' : ''}',
@@ -829,6 +903,7 @@ class ScheduleView extends StatelessWidget {
               ),
             );
           }),
+        ],
       ],
     );
   }
@@ -1055,6 +1130,19 @@ class ProfileView extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                     builder: (_) => AiSettingsPage(appState: appState),
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.record_voice_over_outlined),
+                title: const Text('Cài đặt giọng đọc'),
+                subtitle: const Text('Nam/nữ và giọng Bắc, Trung hoặc Nam'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => VoiceSettingsPage(appState: appState),
                   ),
                 ),
               ),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../data/task_repository.dart';
@@ -34,6 +36,7 @@ class AppState extends ChangeNotifier {
   String userName = '';
   String userEmail = '';
   String userRole = 'user';
+  VoiceSettings voiceSettings = const VoiceSettings();
   String? error;
 
   bool get isAdmin => userRole == 'admin';
@@ -54,6 +57,7 @@ class AppState extends ChangeNotifier {
           notifyListeners();
         }
         await load();
+        await loadVoiceSettings();
       }
     } finally {
       isBootstrapping = false;
@@ -71,6 +75,7 @@ class AppState extends ChangeNotifier {
         ..addAll(await repository.getTasks());
       await _ensureFixedSchedule();
       await NotificationService.instance.rescheduleAll(tasks);
+      unawaited(prefetchScheduleSpeech());
     } catch (exception) {
       error = '$exception';
     } finally {
@@ -105,6 +110,7 @@ class AppState extends ChangeNotifier {
       );
     isSignedIn = true;
     await load();
+    await loadVoiceSettings();
   }
 
   void signOut() {
@@ -125,6 +131,7 @@ class AppState extends ChangeNotifier {
     userName = '';
     userEmail = '';
     userRole = 'user';
+    voiceSettings = const VoiceSettings();
     error = null;
     isSignedIn = false;
     notifyListeners();
@@ -227,8 +234,53 @@ class AppState extends ChangeNotifier {
 
   Future<void> testAiSettings() => repository.testAiSettings();
 
+  Future<void> loadVoiceSettings() async {
+    try {
+      voiceSettings = await repository.getVoiceSettings();
+      notifyListeners();
+      unawaited(prefetchScheduleSpeech());
+    } catch (_) {
+      // Giọng hệ thống vẫn hoạt động với cấu hình mặc định khi offline.
+    }
+  }
+
+  Future<VoiceSettings> saveVoiceSettings(VoiceSettings settings) async {
+    voiceSettings = await repository.saveVoiceSettings(settings);
+    notifyListeners();
+    unawaited(prefetchScheduleSpeech());
+    return voiceSettings;
+  }
+
   Future<Uint8List> synthesizeSpeech(String text) =>
       repository.synthesizeSpeech(text);
+
+  String scheduleItemSpeech(ScheduleItem item) =>
+      'Từ ${_spokenTime(item.start)} đến ${_spokenTime(item.end)}, '
+      'bạn làm công việc ${item.title}.';
+
+  String dayScheduleSpeech([List<ScheduleItem>? items]) {
+    final selected = items ?? schedule;
+    final details = selected.map(scheduleItemSpeech).join(' ');
+    return 'Từ những công việc bạn đã đưa ra, mình sắp xếp kế hoạch '
+        'trong ngày như thế này. $details';
+  }
+
+  Future<void> prefetchScheduleSpeech() async {
+    final items = schedule;
+    if (items.isEmpty || !voiceSettings.configured) return;
+    try {
+      await repository.prefetchSpeech([
+        dayScheduleSpeech(items),
+        ...items.map(scheduleItemSpeech),
+      ]);
+    } catch (_) {
+      // Làm nóng cache là tối ưu tùy chọn, không ảnh hưởng lịch chính.
+    }
+  }
+
+  String _spokenTime(DateTime value) => value.minute == 0
+      ? '${value.hour} giờ'
+      : '${value.hour} giờ ${value.minute} phút';
 
   Future<void> submitFeedback({
     required String type,

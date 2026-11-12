@@ -32,9 +32,16 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+/output/
 backend/.env
 backend/node_modules/
 backend/logs/
+backend/.venv/
+backend/third_party/
+backend/models/
+backend/tools/
+backend/cache/
+backend/data/
 
 # Symbolication related
 app.*.symbols

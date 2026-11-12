@@ -54,6 +54,9 @@ abstract class TaskRepository {
   Future<AiSettings> getAiSettings({bool admin = false});
   Future<AiSettings> saveAiSettings(AiSettings settings, {bool admin = false});
   Future<void> testAiSettings();
+  Future<VoiceSettings> getVoiceSettings();
+  Future<VoiceSettings> saveVoiceSettings(VoiceSettings settings);
+  Future<void> prefetchSpeech(List<String> texts);
   Future<Uint8List> synthesizeSpeech(String text);
   Future<void> submitFeedback({
     required String type,
@@ -122,6 +125,43 @@ class AiSettings {
     'baseUrl': baseUrl,
     'apiKey': apiKey,
     'customAiEnabled': customAiEnabled,
+  };
+}
+
+class VoiceSettings {
+  const VoiceSettings({
+    this.gender = 'female',
+    this.region = 'northern',
+    this.engine = 'viettts',
+    this.configured = false,
+    this.customizable = false,
+    this.deviceVoiceName = '',
+    this.deviceVoiceLocale = '',
+  });
+
+  final String gender;
+  final String region;
+  final String engine;
+  final bool configured;
+  final bool customizable;
+  final String deviceVoiceName;
+  final String deviceVoiceLocale;
+
+  factory VoiceSettings.fromJson(Map<String, dynamic> json) => VoiceSettings(
+    gender: '${json['gender'] ?? 'female'}',
+    region: '${json['region'] ?? 'northern'}',
+    engine: '${json['engine'] ?? 'viettts'}',
+    configured: json['configured'] == true,
+    customizable: json['customizable'] == true,
+    deviceVoiceName: '${json['deviceVoiceName'] ?? ''}',
+    deviceVoiceLocale: '${json['deviceVoiceLocale'] ?? ''}',
+  );
+
+  Map<String, dynamic> toJson() => {
+    'gender': gender,
+    'region': region,
+    'deviceVoiceName': deviceVoiceName,
+    'deviceVoiceLocale': deviceVoiceLocale,
   };
 }
 
@@ -259,6 +299,16 @@ class MockTaskRepository implements TaskRepository {
 
   @override
   Future<void> testAiSettings() async {}
+
+  @override
+  Future<VoiceSettings> getVoiceSettings() async => const VoiceSettings();
+
+  @override
+  Future<VoiceSettings> saveVoiceSettings(VoiceSettings settings) async =>
+      settings;
+
+  @override
+  Future<void> prefetchSpeech(List<String> texts) async {}
 
   @override
   Future<Uint8List> synthesizeSpeech(String text) {
@@ -454,7 +504,7 @@ class ApiTaskRepository implements TaskRepository {
             headers: headers,
             body: jsonEncode(body),
           )
-          .timeout(const Duration(seconds: 120));
+          .timeout(const Duration(seconds: 300));
       if (response.statusCode < 200 || response.statusCode >= 300) {
         String? message;
         try {
@@ -657,6 +707,32 @@ class ApiTaskRepository implements TaskRepository {
   @override
   Future<void> testAiSettings() async {
     await _request('/api/settings/ai/test', method: 'POST');
+  }
+
+  @override
+  Future<VoiceSettings> getVoiceSettings() async {
+    final data = await _request('/api/settings/voice');
+    return VoiceSettings.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  @override
+  Future<VoiceSettings> saveVoiceSettings(VoiceSettings settings) async {
+    final data = await _request(
+      '/api/settings/voice',
+      method: 'PUT',
+      body: settings.toJson(),
+    );
+    return VoiceSettings.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  @override
+  Future<void> prefetchSpeech(List<String> texts) async {
+    if (texts.isEmpty) return;
+    await _request(
+      '/api/voice/prefetch',
+      method: 'POST',
+      body: {'texts': texts},
+    );
   }
 
   @override

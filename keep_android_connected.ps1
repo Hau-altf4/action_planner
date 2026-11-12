@@ -7,7 +7,6 @@ param(
 $ErrorActionPreference = 'Continue'
 
 $projectPath = Split-Path -Parent $MyInvocation.MyCommand.Path
-$adbPath = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
 $backendHealthUrl = "http://127.0.0.1:$Port/health"
 $ollamaHealthUrl = 'http://127.0.0.1:11434/api/tags'
 $logDirectory = Join-Path $projectPath 'backend\logs'
@@ -15,6 +14,24 @@ $logPath = Join-Path $logDirectory 'android-device-bridge.log'
 $lastServiceCheck = [datetime]::MinValue
 $knownConnectedDevices = @{}
 $serviceStartAttempts = @{}
+
+function Resolve-AdbPath {
+  $command = Get-Command adb.exe -ErrorAction SilentlyContinue
+  $sdkRoots = @(
+    $env:ANDROID_SDK_ROOT
+    $env:ANDROID_HOME
+    $(if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'Android\Sdk' })
+    $(if ($env:USERPROFILE) { Join-Path $env:USERPROFILE 'AppData\Local\Android\Sdk' })
+  ) | Where-Object { $_ }
+  $candidates = @($command.Source) + @(
+    $sdkRoots | ForEach-Object { Join-Path $_ 'platform-tools\adb.exe' }
+  )
+  return $candidates |
+    Where-Object { $_ -and (Test-Path -LiteralPath $_) } |
+    Select-Object -First 1
+}
+
+$adbPath = Resolve-AdbPath
 
 New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
 
@@ -76,16 +93,19 @@ function Ensure-ProjectServices {
   }
 }
 
-if (-not (Test-Path -LiteralPath $adbPath)) {
-  Write-BridgeLog "ADB was not found: $adbPath"
-  exit 1
+if (-not $adbPath) {
+  Write-BridgeLog 'ADB was not found; backend checks will continue but USB port forwarding is unavailable.'
 }
 
 function Invoke-BridgeCheck {
   try {
-    $deviceLines = & $adbPath devices 2>$null |
-      Select-Object -Skip 1 |
-      Where-Object { $_ -match '^([^\s]+)\s+device$' }
+    $deviceLines = if ($adbPath) {
+      & $adbPath devices 2>$null |
+        Select-Object -Skip 1 |
+        Where-Object { $_ -match '^([^\s]+)\s+device$' }
+    } else {
+      @()
+    }
     $connectedSerials = @($deviceLines | ForEach-Object {
       if ($_ -match '^([^\s]+)\s+device$') { $Matches[1] }
     })

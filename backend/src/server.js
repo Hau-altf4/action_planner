@@ -14,7 +14,11 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import { MongoClient, ObjectId } from 'mongodb';
 
-import { daCauHinhGiongNoi, taoGiongNoi } from './voice.js';
+import {
+  daCauHinhGiongNoi,
+  taoGiongNoi,
+  thongTinGiongNoi,
+} from './voice.js';
 
 const app = express();
 app.use(cors());
@@ -42,6 +46,22 @@ const feedback = database.collection('feedback');
 const aiUsage = database.collection('ai_usage');
 const supportedProviders = new Set(['ollama', 'openai', 'gemini', 'anthropic']);
 const defaultProvider = (process.env.AI_PROVIDER || 'ollama').toLowerCase();
+const voiceGenders = new Set(['male', 'female']);
+const voiceRegions = new Set(['northern', 'central', 'southern']);
+
+function normalizeVoiceSettings(value = {}) {
+  const source = value || {};
+  return {
+    gender: voiceGenders.has(source.voiceGender)
+      ? source.voiceGender
+      : 'female',
+    region: voiceRegions.has(source.voiceRegion)
+      ? source.voiceRegion
+      : 'northern',
+    deviceVoiceName: String(source.deviceVoiceName || '').slice(0, 200),
+    deviceVoiceLocale: String(source.deviceVoiceLocale || '').slice(0, 50),
+  };
+}
 
 const asyncRoute = (handler) => (req, res, next) =>
   Promise.resolve(handler(req, res, next)).catch(next);
@@ -326,7 +346,11 @@ app.get(
         : 'not_configured',
       aiProvider: config.provider,
       aiModel: config.model,
-      voice: daCauHinhGiongNoi() ? 'configured' : 'not_configured',
+      voice: thongTinGiongNoi().engine === 'device'
+        ? 'device'
+        : daCauHinhGiongNoi() ? 'configured' : 'not_configured',
+      voiceEngine: thongTinGiongNoi().engine,
+      voiceCustomizable: thongTinGiongNoi().customizable,
     });
   }),
 );
@@ -339,16 +363,60 @@ app.post(
     if (!text) {
       return res.status(400).json({ message: 'Vui lòng nhập nội dung cần đọc.' });
     }
-    if (text.length > 500) {
+    if (text.length > 3000) {
       return res.status(400).json({
-        message: 'Nội dung giọng nói không được vượt quá 500 ký tự.',
+        message: 'Nội dung giọng nói không được vượt quá 3000 ký tự.',
       });
     }
-    const audio = await taoGiongNoi(text);
+    // Voice synthesis is optional. Return the expected service state directly
+    // instead of throwing through the global error handler and filling the
+    // backend error log with a stack trace on every client fallback.
+    if (!daCauHinhGiongNoi()) {
+      return res.status(503).json({
+        message:
+          'Giọng nói chưa được cấu hình. Hãy đặt VIETTTS_DIR trong backend/.env.',
+      });
+    }
+    const savedVoice = await userSettings.findOne(
+      { userId: req.user.id },
+      {
+        projection: {
+          voiceGender: 1,
+          voiceRegion: 1,
+          deviceVoiceName: 1,
+          deviceVoiceLocale: 1,
+        },
+      },
+    );
+    const audio = await taoGiongNoi(text, normalizeVoiceSettings(savedVoice));
     res
       .set('Cache-Control', 'private, no-store')
       .type('audio/wav')
       .send(audio);
+  }),
+);
+
+app.post(
+  '/api/voice/prefetch',
+  auth,
+  asyncRoute(async (req, res) => {
+    const texts = (Array.isArray(req.body.texts) ? req.body.texts : [])
+      .map((value) => String(value || '').trim())
+      .filter((value) => value && value.length <= 3000)
+      .slice(0, 30);
+    const savedVoice = await userSettings.findOne(
+      { userId: req.user.id },
+      { projection: { voiceGender: 1, voiceRegion: 1 } },
+    );
+    const settings = normalizeVoiceSettings(savedVoice);
+    res.status(202).json({ queued: texts.length });
+    for (const text of texts) {
+      try {
+        await taoGiongNoi(text, settings);
+      } catch (error) {
+        console.warn(`[voice-prefetch] ${error.message}`);
+      }
+    }
   }),
 );
 
@@ -1135,6 +1203,56 @@ app.post(
       req.user.id,
     );
     res.json({ ok: Boolean(answer.trim()), answer: answer.trim() });
+  }),
+);
+
+app.get(
+  '/api/settings/voice',
+  auth,
+  asyncRoute(async (req, res) => {
+    const saved = await userSettings.findOne(
+      { userId: req.user.id },
+      {
+        projection: {
+          voiceGender: 1,
+          voiceRegion: 1,
+          deviceVoiceName: 1,
+          deviceVoiceLocale: 1,
+        },
+      },
+    );
+    res.json({
+      ...normalizeVoiceSettings(saved),
+      ...thongTinGiongNoi(),
+    });
+  }),
+);
+
+app.put(
+  '/api/settings/voice',
+  auth,
+  asyncRoute(async (req, res) => {
+    const settings = normalizeVoiceSettings({
+      voiceGender: String(req.body.gender || '').toLowerCase(),
+      voiceRegion: String(req.body.region || '').toLowerCase(),
+      deviceVoiceName: String(req.body.deviceVoiceName || ''),
+      deviceVoiceLocale: String(req.body.deviceVoiceLocale || ''),
+    });
+    await userSettings.updateOne(
+      { userId: req.user.id },
+      {
+        $set: {
+          voiceGender: settings.gender,
+          voiceRegion: settings.region,
+          deviceVoiceName: settings.deviceVoiceName,
+          deviceVoiceLocale: settings.deviceVoiceLocale,
+          updatedAt: new Date(),
+        },
+        $setOnInsert: { userId: req.user.id, createdAt: new Date() },
+      },
+      { upsert: true },
+    );
+    res.json({ ...settings, ...thongTinGiongNoi() });
   }),
 );
 

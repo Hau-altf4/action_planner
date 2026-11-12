@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "check": "node --check src/server.js && node --check src/voice.js",
     "dev": "node --watch src/server.js",
     "start": "node src/server.js"
   },
@@ -18,9 +19,11 @@
     "jsonwebtoken": "^9.0.3",
     "mongodb": "^7.6.0"
   },
-  "description": "",
-  "main": "index.js",
-  "keywords": [],
-  "author": "",
+  "description": "REST API for Action Planner AI",
+  "keywords": [
+    "action-planner",
+    "express",
+    "mongodb"
+  ],
   "license": "ISC"
 }

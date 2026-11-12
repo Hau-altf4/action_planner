@@ -3,6 +3,7 @@ import 'package:action_planner/data/task_repository.dart';
 import 'package:action_planner/models/task.dart';
 import 'package:action_planner/state/app_state.dart';
 import 'package:action_planner/ui/task_editor.dart';
+import 'package:action_planner/ui/home_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -28,6 +29,31 @@ void main() {
     expect(second.start, first.start);
     expect(second.end, first.end);
     expect(restored.scheduledStart, task.scheduledStart);
+  });
+
+  testWidgets('schedule exposes task and full-day voice actions', (
+    tester,
+  ) async {
+    final appState = AppState(MockTaskRepository());
+    appState.tasks.add(
+      PlannerTask(
+        id: 'voice-plan',
+        title: 'Viết báo cáo',
+        estimatedMinutes: 45,
+        deadline: DateTime.now().add(const Duration(hours: 3)),
+        scheduledStart: DateTime(2026, 11, 9, 8),
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: ScheduleView(appState: appState)),
+      ),
+    );
+
+    expect(find.text('Đọc kế hoạch cả ngày'), findsOneWidget);
+    expect(find.text('Viết báo cáo'), findsOneWidget);
+    expect(find.textContaining('08:00 – 08:45'), findsOneWidget);
   });
 
   testWidgets('shows the sign-in screen', (tester) async {
@@ -81,10 +107,7 @@ void main() {
     expect(find.text('Xem lịch hôm nay'), findsOneWidget);
     expect(find.text('Việc nào cần ưu tiên?'), findsOneWidget);
     expect(find.text('Công việc nào sắp hết hạn?'), findsOneWidget);
-    await tester.drag(
-      find.byType(ListView).last,
-      const Offset(-500, 0),
-    );
+    await tester.drag(find.byType(ListView).last, const Offset(-500, 0));
     await tester.pumpAndSettle();
     expect(find.text('Hướng dẫn tôi chia nhỏ một công việc'), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'Sắp xếp công việc');

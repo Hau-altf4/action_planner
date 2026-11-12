@@ -1,8 +1,11 @@
 # Action Planner AI
 
-Ứng dụng Android bằng Flutter/Dart để quản lý công việc, theo dõi tiến độ,
-lập lịch trong ngày và nhận gợi ý từ AI. Ứng dụng mặc định kết nối REST API
-thật để mỗi tài khoản dùng dữ liệu riêng được lưu trong MongoDB.
+Ứng dụng Flutter đa nền tảng để quản lý công việc, theo dõi tiến độ, lập lịch
+trong ngày và nhận gợi ý từ AI. Ứng dụng mặc định kết nối REST API thật để mỗi
+tài khoản dùng dữ liệu riêng được lưu trong MongoDB.
+
+> Trạng thái demo: Flutter analyze sạch, test tự động pass; Android, Windows và
+> Web là các luồng phát triển chính. iOS/macOS cần được build trên macOS.
 
 ## Chức năng đã có
 
@@ -20,6 +23,55 @@ thật để mỗi tài khoản dùng dữ liệu riêng được lưu trong Mon
 - Dashboard admin: user, mức sử dụng, độ trễ AI, đánh giá và khiếu nại.
 - Khôi phục phiên đăng nhập an toàn và cache công việc để mở app nhanh hơn.
 - Đọc tiêu đề, mô tả và các bước công việc bằng giọng nói tiếng Việt.
+
+## Chạy nhanh từ máy mới
+
+### Yêu cầu
+
+- Git.
+- Flutter `3.47.2` (Dart `3.13.2`) hoặc phiên bản tương thích với
+  `pubspec.yaml`.
+- Node.js `20` trở lên và npm.
+- MongoDB Community Server đang chạy ở máy local.
+- Ollama là tùy chọn; không cần để thử CRUD bằng mock data.
+
+### Chạy đầy đủ với backend
+
+```powershell
+git clone https://github.com/Hau-altf4/action_planner.git
+cd action_planner
+
+Copy-Item backend/.env.example backend/.env
+cd backend
+npm ci
+npm run check
+npm run dev
+```
+
+Giữ terminal backend đang chạy, mở terminal thứ hai tại thư mục dự án:
+
+```powershell
+flutter pub get
+flutter run
+```
+
+Trước khi dùng ngoài máy cá nhân, hãy thay `JWT_SECRET` và
+`API_KEY_ENCRYPTION_SECRET` trong `backend/.env` bằng hai chuỗi dài, ngẫu nhiên
+và khác nhau. Chỉ điền `ADMIN_EMAIL`/`ADMIN_PASSWORD` nếu muốn backend tự tạo
+tài khoản quản trị.
+
+### Chạy UI không cần backend
+
+```powershell
+flutter pub get
+flutter run --dart-define=USE_MOCK_DATA=true
+```
+
+Mock mode phù hợp để xem giao diện và phát triển widget; đăng nhập, đồng bộ,
+AI và dashboard quản trị đầy đủ cần backend.
+
+Tổng quan luồng dữ liệu và điểm mở rộng nằm trong
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## 1. Chạy ứng dụng
 
@@ -177,9 +229,29 @@ Tải các mô hình theo hướng dẫn `scripts/quick_start.sh` của `vietTTS
 các biến sau trong `backend/.env`:
 
 ```env
+VOICE_ENGINE=viettts
 VIETTTS_DIR=C:\duong-dan\vietTTS
 VIETTTS_PYTHON=python
 VIETTTS_LEXICON=assets/infore/lexicon.txt
+VIETTTS_TIMEOUT_MS=120000
+```
+
+`vietTTS` gốc chỉ cung cấp một giọng mặc định. Để người dùng chọn giọng nam/nữ
+và miền Bắc/Trung/Nam, cài
+[`VietVoice-TTS`](https://github.com/nguyenvulebinh/VietVoice-TTS):
+
+```powershell
+git clone https://github.com/nguyenvulebinh/VietVoice-TTS.git
+cd VietVoice-TTS
+python -m pip install -e ".[cpu]"
+```
+
+Sau đó đổi cấu hình backend:
+
+```env
+VOICE_ENGINE=vietvoice
+VIETTTS_DIR=C:\duong-dan\VietVoice-TTS
+VIETTTS_PYTHON=python
 VIETTTS_TIMEOUT_MS=120000
 ```
 
@@ -187,6 +259,21 @@ Khởi động lại backend. Kết quả `/health` phải có `"voice": "config
 Trong ứng dụng, bấm biểu tượng loa ở thẻ công việc hoặc nút **Đọc công việc**
 trong màn hình chi tiết. Âm thanh được tạo theo yêu cầu, chỉ trả về cho tài
 khoản đã đăng nhập và không được lưu trên máy chủ.
+
+Trong tab **Lịch**, bấm tên một công việc để nghe khung giờ và tên công việc,
+hoặc bấm **Đọc kế hoạch cả ngày** để nghe toàn bộ lịch. Mỗi tài khoản có thể
+chọn giới tính và vùng miền tại **Cá nhân → Cài đặt giọng đọc**.
+
+Backend lưu cache WAV theo nội dung, giới tính và vùng miền. Ứng dụng tự làm
+nóng cache sau khi tải lịch hoặc đổi giọng, nên lần đọc tiếp theo không phải
+chạy lại mô hình. Có thể điều chỉnh tốc độ/chất lượng CPU bằng
+`VIETVOICE_NFE_STEP` và `VIETVOICE_SPEED`; cấu hình mặc định ưu tiên phản hồi
+nhanh với `2` bước và tốc độ `1.15`.
+
+Để ưu tiên bấm và đọc ngay, đặt `VOICE_ENGINE=device`. Ứng dụng sẽ bỏ qua
+backend Python và dùng trực tiếp TTS trên điện thoại. Trang cài đặt chỉ liệt kê
+các giọng tiếng Việt thực sự được hệ điều hành cung cấp, vì vậy không hiển thị
+lựa chọn giới tính/vùng miền mà thiết bị không hỗ trợ.
 
 Nếu máy phát triển chưa cài Python hoặc mô hình `vietTTS`, ứng dụng tự chuyển
 sang giọng tiếng Việt có sẵn trên Android/iOS thay vì báo lỗi. Khi `/health`

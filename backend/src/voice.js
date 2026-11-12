@@ -1,28 +1,58 @@
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { isAbsolute, join, resolve } from 'node:path';
+import { delimiter, isAbsolute, join, resolve } from 'node:path';
 
 const thuMucVietTts = process.env.VIETTTS_DIR
   ? resolve(process.env.VIETTTS_DIR)
   : '';
+const boMayGiongNoi = (process.env.VOICE_ENGINE || 'viettts').toLowerCase();
 const tepTuDien = process.env.VIETTTS_LEXICON ||
   'assets/infore/lexicon.txt';
 const lenhPython = process.env.VIETTTS_PYTHON ||
   (process.platform === 'win32' ? 'python' : 'python3');
+const thuMucCache = resolve(
+  process.env.VOICE_CACHE_DIR || join(process.cwd(), 'cache', 'voice'),
+);
+const dangTao = new Map();
 
 export function daCauHinhGiongNoi() {
-  return Boolean(thuMucVietTts);
+  return boMayGiongNoi !== 'device' && Boolean(thuMucVietTts);
 }
 
-function chayVietTts(vanBan, tepDauRa) {
+export function thongTinGiongNoi() {
+  return {
+    engine: boMayGiongNoi,
+    configured: daCauHinhGiongNoi(),
+    customizable: boMayGiongNoi === 'vietvoice',
+  };
+}
+
+function chayVietTts(vanBan, tepDauRa, tuyChon) {
   return new Promise((resolvePromise, reject) => {
     const duongDanTuDien = isAbsolute(tepTuDien)
       ? tepTuDien
       : join(thuMucVietTts, tepTuDien);
-    const tienTrinh = spawn(
-      lenhPython,
-      [
+    const thamSo = boMayGiongNoi === 'vietvoice'
+      ? [
+        '-m',
+        'vietvoicetts',
+        vanBan,
+        tepDauRa,
+        '--gender',
+        tuyChon.gender,
+        '--area',
+        tuyChon.region,
+        ...(process.env.VIETVOICE_MODEL_CACHE
+          ? ['--model-cache-dir', process.env.VIETVOICE_MODEL_CACHE]
+          : []),
+        '--nfe-step',
+        String(Math.max(2, Number(process.env.VIETVOICE_NFE_STEP) || 2)),
+        '--speed',
+        String(Math.max(0.8, Number(process.env.VIETVOICE_SPEED) || 1.15)),
+      ]
+      : [
         '-m',
         'vietTTS.synthesizer',
         '--text',
@@ -33,10 +63,20 @@ function chayVietTts(vanBan, tepDauRa) {
         duongDanTuDien,
         '--silence-duration',
         '0.2',
-      ],
+      ];
+    const tienTrinh = spawn(
+      lenhPython,
+      thamSo,
       {
         cwd: thuMucVietTts,
-        env: process.env,
+        env: {
+          ...process.env,
+          PATH: process.env.VIETVOICE_FFMPEG_DIR
+            ? `${process.env.VIETVOICE_FFMPEG_DIR}${delimiter}${process.env.PATH || process.env.Path || ''}`
+            : process.env.PATH || process.env.Path,
+          PYTHONUTF8: '1',
+          PYTHONIOENCODING: 'utf-8',
+        },
         windowsHide: true,
         shell: false,
       },
@@ -78,7 +118,10 @@ function chayVietTts(vanBan, tepDauRa) {
   });
 }
 
-export async function taoGiongNoi(vanBan) {
+export async function taoGiongNoi(
+  vanBan,
+  { gender = 'female', region = 'northern' } = {},
+) {
   if (!daCauHinhGiongNoi()) {
     const error = new Error(
       'Giọng nói chưa được cấu hình. Hãy đặt VIETTTS_DIR trong backend/.env.',
@@ -87,19 +130,48 @@ export async function taoGiongNoi(vanBan) {
     throw error;
   }
 
-  const thuMucTam = await mkdtemp(join(tmpdir(), 'action-planner-tts-'));
-  const tepDauRa = join(thuMucTam, 'giong-noi.wav');
+  const cacheKey = createHash('sha256')
+    .update([
+      boMayGiongNoi,
+      gender,
+      region,
+      process.env.VIETVOICE_NFE_STEP || '2',
+      process.env.VIETVOICE_SPEED || '1.15',
+      vanBan,
+    ].join('\u0000'))
+    .digest('hex');
+  const tepCache = join(thuMucCache, `${cacheKey}.wav`);
   try {
-    await chayVietTts(vanBan, tepDauRa);
-    return await readFile(tepDauRa);
-  } catch (cause) {
-    const error = new Error(
-      `Không thể tạo giọng nói tiếng Việt: ${cause.message}`,
-      { cause },
-    );
-    error.statusCode = cause.statusCode || 500;
-    throw error;
+    return await readFile(tepCache);
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+
+  if (dangTao.has(cacheKey)) return dangTao.get(cacheKey);
+  const congViec = (async () => {
+    const thuMucTam = await mkdtemp(join(tmpdir(), 'action-planner-tts-'));
+    const tepDauRa = join(thuMucTam, 'giong-noi.wav');
+    try {
+      await chayVietTts(vanBan, tepDauRa, { gender, region });
+      const audio = await readFile(tepDauRa);
+      await mkdir(thuMucCache, { recursive: true });
+      await writeFile(tepCache, audio);
+      return audio;
+    } catch (cause) {
+      const error = new Error(
+        `Không thể tạo giọng nói tiếng Việt: ${cause.message}`,
+        { cause },
+      );
+      error.statusCode = cause.statusCode || 500;
+      throw error;
+    } finally {
+      await rm(thuMucTam, { recursive: true, force: true });
+    }
+  })();
+  dangTao.set(cacheKey, congViec);
+  try {
+    return await congViec;
   } finally {
-    await rm(thuMucTam, { recursive: true, force: true });
+    dangTao.delete(cacheKey);
   }
 }
