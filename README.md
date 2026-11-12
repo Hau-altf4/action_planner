@@ -4,6 +4,10 @@
 trong ngày và nhận gợi ý từ AI. Ứng dụng mặc định kết nối REST API thật để mỗi
 tài khoản dùng dữ liệu riêng được lưu trong MongoDB.
 
+## Báo cáo đồ án
+
+📄 **[Xem báo cáo đầy đủ (PDF, 42 trang)](docs/bao-cao-do-an-action-planner.pdf)**
+
 > Trạng thái demo: Flutter analyze sạch, test tự động pass; Android, Windows và
 > Web là các luồng phát triển chính. iOS/macOS cần được build trên macOS.
 
