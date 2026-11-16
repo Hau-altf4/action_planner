@@ -8,6 +8,8 @@ tài khoản dùng dữ liệu riêng được lưu trong MongoDB.
 
 📄 **[Xem báo cáo đầy đủ (PDF, 42 trang)](docs/bao-cao-do-an-action-planner.pdf)**
 
+📊 **[Xem slide thuyết trình (PDF, 22 trang)](docs/slide-action-planner.pdf)**
+
 > Trạng thái demo: Flutter analyze sạch, test tự động pass; Android, Windows và
 > Web là các luồng phát triển chính. iOS/macOS cần được build trên macOS.
 
